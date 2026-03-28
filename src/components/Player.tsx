@@ -3,6 +3,7 @@ import Hls from 'hls.js'
 
 export interface PlayerHandle {
   getCurrentTime: () => number
+  seekTo: (time: number) => void
 }
 
 interface Props {
@@ -15,6 +16,9 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src }, ref) => {
 
   useImperativeHandle(ref, () => ({
     getCurrentTime: () => videoRef.current?.currentTime ?? 0,
+    seekTo: (time: number) => {
+      if (videoRef.current) videoRef.current.currentTime = time
+    },
   }))
 
   useEffect(() => {

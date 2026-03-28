@@ -168,10 +168,16 @@ body {
   gap: 10px;
 }
 
+.mark-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
 .mark-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .mark-time {
@@ -197,6 +203,58 @@ body {
 }
 
 .mark-placeholder { color: var(--text-muted); }
+
+/* Clickable time that seeks to the mark */
+.mark-time-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  padding: 1px 4px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.mark-time-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Adjustment nudge buttons */
+.adjust-row {
+  display: flex;
+  gap: 4px;
+  padding-left: 88px; /* align under the time, past the Mark In/Out button */
+}
+
+.btn-adjust {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 3px 0;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  text-align: center;
+}
+.btn-adjust:hover {
+  background: var(--border);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.clip-duration-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-left: 2px;
+}
+.clip-duration-hint strong {
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
 
 .btn-clear {
   background: none;

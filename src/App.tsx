@@ -49,6 +49,18 @@ export default function App() {
     setPendingMarks((m) => ({ ...m, out: t }))
   }, [])
 
+  const handleSeekTo = useCallback((time: number) => {
+    playerRef.current?.seekTo(time)
+  }, [])
+
+  const handleAdjustIn = useCallback((delta: number) => {
+    setPendingMarks((m) => ({ ...m, in: Math.max(0, (m.in ?? 0) + delta) }))
+  }, [])
+
+  const handleAdjustOut = useCallback((delta: number) => {
+    setPendingMarks((m) => ({ ...m, out: Math.max(0, (m.out ?? 0) + delta) }))
+  }, [])
+
   const canAddClip =
     pendingMarks.in !== null &&
     pendingMarks.out !== null &&
@@ -160,6 +172,9 @@ export default function App() {
                 onMarkOut={handleMarkOut}
                 onClearIn={() => setPendingMarks((m) => ({ ...m, in: null }))}
                 onClearOut={() => setPendingMarks((m) => ({ ...m, out: null }))}
+                onSeekTo={handleSeekTo}
+                onAdjustIn={handleAdjustIn}
+                onAdjustOut={handleAdjustOut}
                 clipName={pendingName}
                 onClipNameChange={setPendingName}
                 onAddClip={handleAddClip}

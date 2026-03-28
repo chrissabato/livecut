@@ -39,6 +39,7 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src }, ref) => {
       hlsRef.current = hls
       hls.loadSource(src)
       hls.attachMedia(video)
+      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}))
       hls.on(Hls.Events.ERROR, (_evt, data) => {
         if (data.fatal) {
           console.error('[HLS] Fatal error:', data)
@@ -47,6 +48,7 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src }, ref) => {
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       // Safari has native HLS support
       video.src = src
+      video.play().catch(() => {})
     } else {
       console.error('This browser does not support HLS playback.')
     }

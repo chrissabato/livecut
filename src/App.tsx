@@ -29,7 +29,7 @@ export default function App() {
   const [exportState, setExportState] = useState<ExportState>(INITIAL_EXPORT)
 
   const playerRef = useRef<PlayerHandle>(null)
-  const { ffmpeg, loaded: ffmpegLoaded, loading: ffmpegLoading, loadError, load: loadFFmpeg } = useFFmpeg()
+  const { ffmpegRef, loaded: ffmpegLoaded, loading: ffmpegLoading, load: loadFFmpeg } = useFFmpeg()
 
   // Keyboard shortcuts: I = mark in, O = mark out
   useEffect(() => {
@@ -68,19 +68,16 @@ export default function App() {
   const handleExport = useCallback(async () => {
     if (!canExport || marks.in === null || marks.out === null) return
 
-    // Load FFmpeg if not already loaded
-    if (!ffmpegLoaded) {
+    // Load FFmpeg if not already loaded — load() returns the instance directly,
+    // avoiding stale closure issues with the ffmpegRef.current value at render time.
+    let currentFfmpeg = ffmpegRef.current
+    if (!currentFfmpeg) {
       setExportState({ status: 'loading-ffmpeg', stage: 'Loading FFmpeg…', percent: 0, error: null })
-      await loadFFmpeg()
-      if (!ffmpeg && loadError) {
-        setExportState({ status: 'error', stage: '', percent: 0, error: loadError })
-        return
-      }
+      currentFfmpeg = await loadFFmpeg()
     }
 
-    const currentFfmpeg = ffmpeg
     if (!currentFfmpeg) {
-      setExportState({ status: 'error', stage: '', percent: 0, error: 'FFmpeg failed to initialize.' })
+      setExportState({ status: 'error', stage: '', percent: 0, error: 'Failed to load FFmpeg. Check your network connection and try again.' })
       return
     }
 
@@ -106,7 +103,7 @@ export default function App() {
       const msg = err instanceof Error ? err.message : String(err)
       setExportState({ status: 'error', stage: '', percent: 0, error: msg })
     }
-  }, [canExport, marks, ffmpegLoaded, ffmpeg, loadFFmpeg, loadError, streamUrl])
+  }, [canExport, marks, ffmpegLoaded, ffmpegRef, loadFFmpeg, streamUrl])
 
   const isPlayerVisible = !!streamUrl
   const isExporting = exportState.status === 'exporting' || exportState.status === 'loading-ffmpeg'

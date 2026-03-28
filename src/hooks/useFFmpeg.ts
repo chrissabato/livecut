@@ -6,11 +6,13 @@ const CORE_VERSION = '0.12.6'
 const CORE_BASE = `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/umd`
 
 export interface FFmpegHook {
-  ffmpeg: FFmpeg | null
+  ffmpegRef: React.RefObject<FFmpeg | null>
   loaded: boolean
   loading: boolean
   loadError: string | null
-  load: () => Promise<void>
+  // Returns the FFmpeg instance on success, null on failure.
+  // Safe to call in async contexts — avoids stale closure issues.
+  load: () => Promise<FFmpeg | null>
 }
 
 /**
@@ -25,8 +27,10 @@ export function useFFmpeg(): FFmpegHook {
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    if (loaded || loading) return
+  const load = useCallback(async (): Promise<FFmpeg | null> => {
+    // Already loaded — return existing instance
+    if (ffmpegRef.current && loaded) return ffmpegRef.current
+    if (loading) return null
 
     setLoading(true)
     setLoadError(null)
@@ -41,14 +45,16 @@ export function useFFmpeg(): FFmpegHook {
       })
 
       setLoaded(true)
+      return ffmpeg
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setLoadError(`Failed to load FFmpeg: ${msg}`)
       ffmpegRef.current = null
+      return null
     } finally {
       setLoading(false)
     }
   }, [loaded, loading])
 
-  return { ffmpeg: ffmpegRef.current, loaded, loading, loadError, load }
+  return { ffmpegRef, loaded, loading, loadError, load }
 }

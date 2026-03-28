@@ -7,9 +7,11 @@ const CORE_VERSION = '0.12.6'
 // its internal worker.js also resolves to CDN via import.meta.url.
 // Using direct CDN URLs for coreURL/wasmURL means the CDN worker imports
 // the core from the same CDN origin — no cross-origin blob complications.
+// Must use ESM (not UMD) — the module worker uses import() which requires a
+// default export. The UMD build has no default export so import().default === undefined.
 const CDN_BASES = [
-  `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd`,
-  `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/umd`,
+  `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/esm`,
+  `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/esm`,
 ]
 
 export interface FFmpegHook {

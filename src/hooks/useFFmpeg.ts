@@ -1,10 +1,12 @@
 import { useRef, useState, useCallback } from 'react'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { toBlobURL } from '@ffmpeg/util'
 
 const CORE_VERSION = '0.12.6'
 
-// Try jsdelivr first (more reliable in some regions), fall back to unpkg
+// When @ffmpeg/ffmpeg is loaded from CDN (as configured in vite.config),
+// its internal worker.js also resolves to CDN via import.meta.url.
+// Using direct CDN URLs for coreURL/wasmURL means the CDN worker imports
+// the core from the same CDN origin — no cross-origin blob complications.
 const CDN_BASES = [
   `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd`,
   `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/umd`,
@@ -17,13 +19,6 @@ export interface FFmpegHook {
   load: () => Promise<FFmpeg>
 }
 
-/**
- * Manages a singleton FFmpeg.wasm instance.
- * Loads the core lazily on first call to load().
- * Uses toBlobURL to convert CDN resources to same-origin blob URLs
- * (required to satisfy Cross-Origin-Embedder-Policy).
- * Throws on failure so callers get the real error message.
- */
 export function useFFmpeg(): FFmpegHook {
   const ffmpegRef = useRef<FFmpeg | null>(null)
   const [loaded, setLoaded] = useState(false)
@@ -35,8 +30,8 @@ export function useFFmpeg(): FFmpegHook {
 
     if (!self.crossOriginIsolated) {
       console.warn(
-        '[FFmpeg] crossOriginIsolated is false — the service worker may not be active. ' +
-        'Try a hard refresh (Ctrl+Shift+R). FFmpeg may still work on some browsers.'
+        '[FFmpeg] crossOriginIsolated is false. ' +
+        'The service worker may not have activated yet — try a hard refresh (Ctrl+Shift+R).'
       )
     }
 
@@ -51,9 +46,11 @@ export function useFFmpeg(): FFmpegHook {
 
         ffmpeg.on('log', ({ message }) => console.debug('[FFmpeg]', message))
 
+        // Use direct CDN URLs — no toBlobURL needed.
+        // The @ffmpeg/ffmpeg worker (also from CDN) treats these as same-origin imports.
         await ffmpeg.load({
-          coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
+          coreURL: `${base}/ffmpeg-core.js`,
+          wasmURL: `${base}/ffmpeg-core.wasm`,
         })
 
         console.log('[FFmpeg] Loaded successfully')
@@ -68,9 +65,7 @@ export function useFFmpeg(): FFmpegHook {
     }
 
     setLoading(false)
-    throw lastError instanceof Error
-      ? lastError
-      : new Error(String(lastError))
+    throw lastError instanceof Error ? lastError : new Error(String(lastError))
   }, [loaded, loading])
 
   return { ffmpegRef, loaded, loading, load }

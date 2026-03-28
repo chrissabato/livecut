@@ -1,11 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'fs'
+
+const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 const FFMPEG_VERSION = '0.12.10'
 const FFMPEG_UTIL_VERSION = '0.12.1'
 const CDN = 'https://cdn.jsdelivr.net/npm'
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+  },
   plugins: [react()],
   base: './',
   optimizeDeps: {

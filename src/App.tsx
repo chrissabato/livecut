@@ -7,6 +7,8 @@ import { useFFmpeg } from './hooks/useFFmpeg'
 import { clipVideo, ExportProgress } from './lib/clipExporter'
 import { formatTimeForFilename } from './lib/formatTime'
 
+declare const __APP_VERSION__: string
+
 interface Marks {
   in: number | null
   out: number | null
@@ -30,7 +32,6 @@ export default function App() {
 
   const playerRef = useRef<PlayerHandle>(null)
   const { ffmpegRef, loaded: ffmpegLoaded, loading: ffmpegLoading, load: loadFFmpeg } = useFFmpeg()
-  void ffmpegLoading // used in button label below
 
   // Keyboard shortcuts: I = mark in, O = mark out
   useEffect(() => {
@@ -69,12 +70,10 @@ export default function App() {
   const handleExport = useCallback(async () => {
     if (!canExport || marks.in === null || marks.out === null) return
 
-    // Load FFmpeg if not already loaded — load() returns the instance directly,
-    // avoiding stale closure issues with the ffmpegRef.current value at render time.
     let currentFfmpeg = ffmpegRef.current
     if (!currentFfmpeg) {
       setExportState({ status: 'loading-ffmpeg', stage: 'Loading FFmpeg…', percent: 0, error: null })
-      currentFfmpeg = await loadFFmpeg() // throws on failure — caught below
+      currentFfmpeg = await loadFFmpeg()
     }
 
     setExportState({ status: 'exporting', stage: 'Starting…', percent: 0, error: null })
@@ -86,7 +85,6 @@ export default function App() {
 
       const blob = await clipVideo(streamUrl, marks.in, marks.out, currentFfmpeg, onProgress)
 
-      // Trigger download
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -108,71 +106,77 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1 className="app-title">LiveCut</h1>
-        <p className="app-subtitle">Clip HLS streams in your browser</p>
+        <span className="app-subtitle">HLS stream clipper</span>
+        <span className="app-version">v{__APP_VERSION__}</span>
       </header>
 
       <main className="app-main">
-        <UrlBar onLoad={handleLoad} loading={false} />
-
-        <div className="cors-note">
-          The stream must allow cross-origin access (CORS). Local or authenticated streams will not work.
+        {/* ── Left: video ── */}
+        <div className="video-column">
+          {isPlayerVisible ? (
+            <Player ref={playerRef} src={streamUrl} />
+          ) : (
+            <div className="empty-state">
+              <div className="empty-icon">▶</div>
+              <p>Paste an .m3u8 URL to get started</p>
+              <p className="empty-hint">
+                Try: <code>https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8</code>
+              </p>
+            </div>
+          )}
         </div>
 
-        {isPlayerVisible && (
-          <>
-            <Player ref={playerRef} src={streamUrl} />
+        {/* ── Right: controls sidebar ── */}
+        <aside className="sidebar">
+          <UrlBar onLoad={handleLoad} loading={false} />
 
-            <Controls
-              marks={marks}
-              onMarkIn={handleMarkIn}
-              onMarkOut={handleMarkOut}
-              onClearIn={() => setMarks((m) => ({ ...m, in: null }))}
-              onClearOut={() => setMarks((m) => ({ ...m, out: null }))}
-              disabled={false}
-            />
+          <p className="cors-note">
+            Stream must allow cross-origin access (CORS).
+          </p>
 
-            <div className="export-row">
-              <button
-                className="btn btn-export"
-                onClick={handleExport}
-                disabled={!canExport}
-              >
-                {isExporting ? 'Exporting…' : ffmpegLoading ? 'Loading FFmpeg…' : 'Export Clip'}
-              </button>
-              {exportState.status === 'done' && (
+          {isPlayerVisible && (
+            <>
+              <Controls
+                marks={marks}
+                onMarkIn={handleMarkIn}
+                onMarkOut={handleMarkOut}
+                onClearIn={() => setMarks((m) => ({ ...m, in: null }))}
+                onClearOut={() => setMarks((m) => ({ ...m, out: null }))}
+                disabled={false}
+              />
+
+              <div className="export-row">
                 <button
-                  className="btn btn-secondary"
-                  onClick={() => setExportState(INITIAL_EXPORT)}
+                  className="btn btn-export"
+                  onClick={handleExport}
+                  disabled={!canExport}
                 >
-                  Export Another
+                  {isExporting ? 'Exporting…' : ffmpegLoading ? 'Loading FFmpeg…' : 'Export Clip'}
                 </button>
-              )}
-            </div>
+                {exportState.status === 'done' && (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setExportState(INITIAL_EXPORT)}
+                  >
+                    Export Another
+                  </button>
+                )}
+              </div>
 
-            <StatusBar
-              status={exportState.status}
-              stage={exportState.stage}
-              percent={exportState.percent}
-              error={exportState.error}
-            />
-          </>
-        )}
+              <StatusBar
+                status={exportState.status}
+                stage={exportState.stage}
+                percent={exportState.percent}
+                error={exportState.error}
+              />
+            </>
+          )}
 
-        {!isPlayerVisible && (
-          <div className="empty-state">
-            <div className="empty-icon">▶</div>
-            <p>Enter an HLS stream URL above to get started.</p>
-            <p className="empty-hint">
-              Try: <code>https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8</code>
-            </p>
+          <div className="sidebar-footer">
+            Use <kbd>I</kbd> / <kbd>O</kbd> to mark in/out while playing.
           </div>
-        )}
+        </aside>
       </main>
-
-      <footer className="app-footer">
-        Runs entirely in your browser — no uploads, no server.
-        Use <kbd>I</kbd> / <kbd>O</kbd> to mark in/out while playing.
-      </footer>
     </div>
   )
 }

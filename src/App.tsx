@@ -2,36 +2,23 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import { UrlBar } from './components/UrlBar'
 import { Player, PlayerHandle } from './components/Player'
 import { Controls } from './components/Controls'
-import { StatusBar } from './components/StatusBar'
+import { ClipList } from './components/ClipList'
 import { useFFmpeg } from './hooks/useFFmpeg'
 import { clipVideo, ExportProgress } from './lib/clipExporter'
 import { formatTimeForFilename } from './lib/formatTime'
+import { Clip } from './lib/types'
 
 declare const __APP_VERSION__: string
 
-interface Marks {
-  in: number | null
-  out: number | null
-}
-
-type ExportStatus = 'idle' | 'loading-ffmpeg' | 'exporting' | 'done' | 'error'
-
-interface ExportState {
-  status: ExportStatus
-  stage: string
-  percent: number
-  error: string | null
-}
-
-const INITIAL_EXPORT: ExportState = { status: 'idle', stage: '', percent: 0, error: null }
-
 export default function App() {
-  const [streamUrl, setStreamUrl] = useState<string>('')
-  const [marks, setMarks] = useState<Marks>({ in: null, out: null })
-  const [exportState, setExportState] = useState<ExportState>(INITIAL_EXPORT)
+  const [streamUrl, setStreamUrl] = useState('')
+  const [pendingMarks, setPendingMarks] = useState<{ in: number | null; out: number | null }>({ in: null, out: null })
+  const [pendingName, setPendingName] = useState('')
+  const [clips, setClips] = useState<Clip[]>([])
+  const [exportingId, setExportingId] = useState<string | null>(null)
 
   const playerRef = useRef<PlayerHandle>(null)
-  const { ffmpegRef, loaded: ffmpegLoaded, loading: ffmpegLoading, load: loadFFmpeg } = useFFmpeg()
+  const { ffmpegRef, loading: ffmpegLoading, load: loadFFmpeg } = useFFmpeg()
 
   // Keyboard shortcuts: I = mark in, O = mark out
   useEffect(() => {
@@ -46,61 +33,94 @@ export default function App() {
 
   const handleLoad = useCallback((url: string) => {
     setStreamUrl(url)
-    setMarks({ in: null, out: null })
-    setExportState(INITIAL_EXPORT)
+    setPendingMarks({ in: null, out: null })
+    setPendingName('')
+    setClips([])
+    setExportingId(null)
   }, [])
 
   const handleMarkIn = useCallback(() => {
     const t = playerRef.current?.getCurrentTime() ?? 0
-    setMarks((m) => ({ ...m, in: t }))
+    setPendingMarks((m) => ({ ...m, in: t }))
   }, [])
 
   const handleMarkOut = useCallback(() => {
     const t = playerRef.current?.getCurrentTime() ?? 0
-    setMarks((m) => ({ ...m, out: t }))
+    setPendingMarks((m) => ({ ...m, out: t }))
   }, [])
 
-  const canExport =
-    marks.in !== null &&
-    marks.out !== null &&
-    marks.out > marks.in &&
-    exportState.status !== 'exporting' &&
-    exportState.status !== 'loading-ffmpeg'
+  const canAddClip =
+    pendingMarks.in !== null &&
+    pendingMarks.out !== null &&
+    pendingMarks.out > pendingMarks.in
 
-  const handleExport = useCallback(async () => {
-    if (!canExport || marks.in === null || marks.out === null) return
+  const handleAddClip = useCallback(() => {
+    if (!canAddClip || pendingMarks.in === null || pendingMarks.out === null) return
+    const newClip: Clip = {
+      id: crypto.randomUUID(),
+      name: pendingName.trim() || `Clip ${clips.length + 1}`,
+      in: pendingMarks.in,
+      out: pendingMarks.out,
+      exportStatus: 'idle',
+      exportProgress: 0,
+      exportError: null,
+    }
+    setClips((prev) => [...prev, newClip])
+    setPendingMarks({ in: null, out: null })
+    setPendingName('')
+  }, [canAddClip, pendingMarks, pendingName, clips.length])
+
+  const handleDeleteClip = useCallback((id: string) => {
+    setClips((prev) => prev.filter((c) => c.id !== id))
+  }, [])
+
+  const handleRenameClip = useCallback((id: string, name: string) => {
+    setClips((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)))
+  }, [])
+
+  const handleExportClip = useCallback(async (id: string) => {
+    const clip = clips.find((c) => c.id === id)
+    if (!clip || exportingId) return
+
+    const updateClip = (patch: Partial<Clip>) =>
+      setClips((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
 
     let currentFfmpeg = ffmpegRef.current
     if (!currentFfmpeg) {
-      setExportState({ status: 'loading-ffmpeg', stage: 'Loading FFmpeg…', percent: 0, error: null })
-      currentFfmpeg = await loadFFmpeg()
+      updateClip({ exportStatus: 'loading-ffmpeg', exportProgress: 0, exportError: null })
+      try {
+        currentFfmpeg = await loadFFmpeg()
+      } catch (err) {
+        updateClip({ exportStatus: 'error', exportError: err instanceof Error ? err.message : String(err) })
+        return
+      }
     }
 
-    setExportState({ status: 'exporting', stage: 'Starting…', percent: 0, error: null })
+    setExportingId(id)
+    updateClip({ exportStatus: 'exporting', exportProgress: 0, exportError: null })
 
     try {
-      const onProgress = (p: ExportProgress) => {
-        setExportState({ status: 'exporting', stage: p.stage, percent: p.percent, error: null })
-      }
+      const onProgress = (p: ExportProgress) =>
+        updateClip({ exportProgress: p.percent })
 
-      const blob = await clipVideo(streamUrl, marks.in, marks.out, currentFfmpeg, onProgress)
+      const blob = await clipVideo(streamUrl, clip.in, clip.out, currentFfmpeg, onProgress)
 
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `clip_${formatTimeForFilename(marks.in)}_${formatTimeForFilename(marks.out)}.mp4`
+      a.download = `${clip.name.replace(/[^a-z0-9_\-]/gi, '_')}_${formatTimeForFilename(clip.in)}.mp4`
       a.click()
       setTimeout(() => URL.revokeObjectURL(url), 60_000)
 
-      setExportState({ status: 'done', stage: 'Done!', percent: 100, error: null })
+      updateClip({ exportStatus: 'done', exportProgress: 100 })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setExportState({ status: 'error', stage: '', percent: 0, error: msg })
+      updateClip({ exportStatus: 'error', exportError: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setExportingId(null)
     }
-  }, [canExport, marks, ffmpegLoaded, ffmpegRef, loadFFmpeg, streamUrl])
+  }, [clips, exportingId, ffmpegRef, loadFFmpeg, streamUrl])
 
   const isPlayerVisible = !!streamUrl
-  const isExporting = exportState.status === 'exporting' || exportState.status === 'loading-ffmpeg'
 
   return (
     <div className="app">
@@ -126,49 +146,36 @@ export default function App() {
           )}
         </div>
 
-        {/* ── Right: controls sidebar ── */}
+        {/* ── Right: sidebar ── */}
         <aside className="sidebar">
           <UrlBar onLoad={handleLoad} loading={false} />
 
-          <p className="cors-note">
-            Stream must allow cross-origin access (CORS).
-          </p>
+          <p className="cors-note">Stream must allow cross-origin access (CORS).</p>
 
           {isPlayerVisible && (
             <>
               <Controls
-                marks={marks}
+                marks={pendingMarks}
                 onMarkIn={handleMarkIn}
                 onMarkOut={handleMarkOut}
-                onClearIn={() => setMarks((m) => ({ ...m, in: null }))}
-                onClearOut={() => setMarks((m) => ({ ...m, out: null }))}
-                disabled={false}
+                onClearIn={() => setPendingMarks((m) => ({ ...m, in: null }))}
+                onClearOut={() => setPendingMarks((m) => ({ ...m, out: null }))}
+                clipName={pendingName}
+                onClipNameChange={setPendingName}
+                onAddClip={handleAddClip}
+                canAddClip={canAddClip}
               />
 
-              <div className="export-row">
-                <button
-                  className="btn btn-export"
-                  onClick={handleExport}
-                  disabled={!canExport}
-                >
-                  {isExporting ? 'Exporting…' : ffmpegLoading ? 'Loading FFmpeg…' : 'Export Clip'}
-                </button>
-                {exportState.status === 'done' && (
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setExportState(INITIAL_EXPORT)}
-                  >
-                    Export Another
-                  </button>
-                )}
-              </div>
-
-              <StatusBar
-                status={exportState.status}
-                stage={exportState.stage}
-                percent={exportState.percent}
-                error={exportState.error}
-              />
+              {clips.length > 0 && (
+                <ClipList
+                  clips={clips}
+                  exportingId={exportingId}
+                  ffmpegLoading={ffmpegLoading && exportingId !== null}
+                  onExport={handleExportClip}
+                  onDelete={handleDeleteClip}
+                  onRename={handleRenameClip}
+                />
+              )}
             </>
           )}
 

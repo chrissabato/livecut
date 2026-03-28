@@ -328,6 +328,152 @@ body {
   word-break: break-all;
 }
 
+/* ── Add clip row (inside Controls) ── */
+.add-clip-row {
+  display: flex;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.clip-name-input {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+  padding: 6px 8px;
+  outline: none;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+.clip-name-input:focus { border-color: var(--accent); }
+.clip-name-input::placeholder { color: var(--text-muted); }
+
+/* ── Clip list ── */
+.clip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clip-list-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.clip-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s;
+}
+.clip-item--exporting  { border-color: var(--accent); }
+.clip-item--loading-ffmpeg { border-color: var(--accent); }
+.clip-item--done       { border-color: #2a4a2a; }
+.clip-item--error      { border-color: #4a2a2a; }
+
+.clip-item-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clip-name {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+.clip-name:hover { color: var(--accent); }
+
+.clip-name-edit {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 6px;
+  outline: none;
+  min-width: 0;
+}
+
+.clip-times {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.clip-duration { opacity: 0.7; }
+
+.btn-export-clip {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  font-size: 11px;
+  border-radius: var(--radius);
+  width: 100%;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-export-clip:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-export-clip:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-export-done {
+  border-color: #2a4a2a;
+  color: var(--success);
+}
+.btn-export-done:hover:not(:disabled) {
+  background: #22c55e22;
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.clip-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.clip-progress .progress-track { flex: 1; }
+.clip-progress-pct {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.clip-error {
+  font-size: 10px;
+  color: var(--error);
+  line-height: 1.4;
+}
+
 /* ── Misc ── */
 kbd {
   background: var(--surface-2);

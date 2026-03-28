@@ -46,9 +46,13 @@ export function useFFmpeg(): FFmpegHook {
 
         ffmpeg.on('log', ({ message }) => console.debug('[FFmpeg]', message))
 
-        // Use direct CDN URLs — no toBlobURL needed.
-        // The @ffmpeg/ffmpeg worker (also from CDN) treats these as same-origin imports.
+        // classWorkerURL must be an absolute same-origin URL — cross-origin workers
+        // are blocked in crossOriginIsolated contexts. This wrapper script imports
+        // the CDN worker as a module (which IS allowed from a same-origin worker).
+        const classWorkerURL = new URL('ffmpeg-worker.js', location.href).href
+
         await ffmpeg.load({
+          classWorkerURL,
           coreURL: `${base}/ffmpeg-core.js`,
           wasmURL: `${base}/ffmpeg-core.wasm`,
         })

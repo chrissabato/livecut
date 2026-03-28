@@ -30,6 +30,7 @@ export default function App() {
 
   const playerRef = useRef<PlayerHandle>(null)
   const { ffmpegRef, loaded: ffmpegLoaded, loading: ffmpegLoading, load: loadFFmpeg } = useFFmpeg()
+  void ffmpegLoading // used in button label below
 
   // Keyboard shortcuts: I = mark in, O = mark out
   useEffect(() => {
@@ -73,12 +74,7 @@ export default function App() {
     let currentFfmpeg = ffmpegRef.current
     if (!currentFfmpeg) {
       setExportState({ status: 'loading-ffmpeg', stage: 'Loading FFmpeg…', percent: 0, error: null })
-      currentFfmpeg = await loadFFmpeg()
-    }
-
-    if (!currentFfmpeg) {
-      setExportState({ status: 'error', stage: '', percent: 0, error: 'Failed to load FFmpeg. Check your network connection and try again.' })
-      return
+      currentFfmpeg = await loadFFmpeg() // throws on failure — caught below
     }
 
     setExportState({ status: 'exporting', stage: 'Starting…', percent: 0, error: null })

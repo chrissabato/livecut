@@ -33,6 +33,13 @@ export function useFFmpeg(): FFmpegHook {
     if (ffmpegRef.current && loaded) return ffmpegRef.current
     if (loading) throw new Error('FFmpeg is already loading')
 
+    if (!self.crossOriginIsolated) {
+      console.warn(
+        '[FFmpeg] crossOriginIsolated is false — the service worker may not be active. ' +
+        'Try a hard refresh (Ctrl+Shift+R). FFmpeg may still work on some browsers.'
+      )
+    }
+
     setLoading(true)
 
     let lastError: unknown

@@ -80,7 +80,7 @@ if (typeof window === "undefined") {
           const sw = registration.installing || registration.waiting;
           if (sw) {
             sw.addEventListener("statechange", (e) => {
-              if ((e.target as ServiceWorker).state === "activated") {
+              if (e.target.state === "activated") {
                 doReload();
               }
             });

@@ -194,12 +194,7 @@ export default function App() {
         {/* ── Left: video ── */}
         <div className="video-column">
           {isPlayerVisible ? (
-            <>
-              <Player ref={playerRef} src={streamUrl} onError={setStreamError} />
-              {streamError && (
-                <div className="stream-error">{streamError}</div>
-              )}
-            </>
+            <Player ref={playerRef} src={streamUrl} onError={setStreamError} />
           ) : (
             <div className="empty-state">
               <div className="empty-icon">▶</div>
@@ -214,6 +209,14 @@ export default function App() {
                   https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
                 </code>
               </p>
+            </div>
+          )}
+          {streamError && (
+            <div className="stream-error-overlay">
+              <div className="stream-error-box">
+                {streamError}
+                <button className="stream-error-dismiss" onClick={() => setStreamError(null)}>×</button>
+              </div>
             </div>
           )}
         </div>

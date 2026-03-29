@@ -146,17 +146,41 @@ body {
 .url-input:focus { border-color: var(--accent); }
 .url-input::placeholder { color: var(--text-muted); }
 
-/* ── Stream error ── */
-.stream-error {
-  margin-top: 8px;
-  padding: 8px 10px;
+/* ── Stream error overlay ── */
+.stream-error-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+.stream-error-box {
+  position: relative;
+  max-width: 420px;
+  padding: 14px 36px 14px 14px;
   background: #2d1010;
   border: 1px solid #7f1d1d;
   border-radius: var(--radius);
   color: #fca5a5;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
+.stream-error-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #fca5a5;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.7;
+}
+.stream-error-dismiss:hover { opacity: 1; }
 
 /* ── CORS note ── */
 .cors-note {

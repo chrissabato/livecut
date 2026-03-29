@@ -57,6 +57,12 @@ export default function App() {
     playerRef.current?.pause()
   }, [])
 
+  const handlePreview = useCallback(() => {
+    if (pendingMarks.in !== null && pendingMarks.out !== null) {
+      playerRef.current?.playSegment(pendingMarks.in, pendingMarks.out)
+    }
+  }, [pendingMarks.in, pendingMarks.out])
+
   const handleAdjustIn = useCallback((delta: number) => {
     setPendingMarks((m) => ({ ...m, in: Math.max(0, (m.in ?? 0) + delta) }))
   }, [])
@@ -186,6 +192,7 @@ export default function App() {
                 onClearOut={() => setPendingMarks((m) => ({ ...m, out: null }))}
                 onSeekTo={handleSeekTo}
                 onPause={handlePause}
+                onPreview={handlePreview}
                 onAdjustIn={handleAdjustIn}
                 onAdjustOut={handleAdjustOut}
                 maxDuration={MAX_CLIP_DURATION}

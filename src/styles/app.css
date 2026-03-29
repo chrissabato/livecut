@@ -304,6 +304,9 @@ body {
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
 
+.btn-secondary { background: var(--surface-2); color: var(--text); }
+.btn-secondary:hover:not(:disabled) { background: var(--surface-3, #3a3a3a); }
+
 .btn-mark {
   background: var(--surface-2);
   color: var(--text);

@@ -19,6 +19,7 @@ interface Props {
   maxDuration: number
   clipName: string
   onClipNameChange: (name: string) => void
+  onPreview: () => void
   onAddClip: () => void
   canAddClip: boolean
 }
@@ -28,7 +29,7 @@ const STEPS = [-1, -0.1, 0.1, 1] as const
 export function Controls({
   marks, onMarkIn, onMarkOut, onClearIn, onClearOut,
   onSeekTo, onPause, onAdjustIn, onAdjustOut, maxDuration,
-  clipName, onClipNameChange, onAddClip, canAddClip,
+  onPreview, clipName, onClipNameChange, onAddClip, canAddClip,
 }: Props) {
   const duration = marks.in !== null && marks.out !== null ? marks.out - marks.in : null
   const overLimit = duration !== null && duration > maxDuration
@@ -119,8 +120,16 @@ export function Controls({
         )
       )}
 
-      {/* Add clip */}
+      {/* Preview + Add clip */}
       <div className="add-clip-row">
+        <button
+          className="btn btn-secondary"
+          onClick={onPreview}
+          disabled={!canAddClip}
+          title="Preview clip"
+        >
+          Preview
+        </button>
         <input
           ref={nameRef}
           className="clip-name-input"

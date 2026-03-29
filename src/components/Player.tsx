@@ -5,6 +5,7 @@ export interface PlayerHandle {
   getCurrentTime: () => number
   seekTo: (time: number) => void
   pause: () => void
+  playSegment: (start: number, end: number) => void
 }
 
 interface Props {
@@ -21,6 +22,19 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src }, ref) => {
       if (videoRef.current) videoRef.current.currentTime = time
     },
     pause: () => videoRef.current?.pause(),
+    playSegment: (start: number, end: number) => {
+      const video = videoRef.current
+      if (!video) return
+      video.currentTime = start
+      video.play().catch(() => {})
+      const onTimeUpdate = () => {
+        if (video.currentTime >= end) {
+          video.pause()
+          video.removeEventListener('timeupdate', onTimeUpdate)
+        }
+      }
+      video.addEventListener('timeupdate', onTimeUpdate)
+    },
   }))
 
   useEffect(() => {

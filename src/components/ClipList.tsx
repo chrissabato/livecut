@@ -9,9 +9,10 @@ interface Props {
   onExport: (id: string) => void
   onDelete: (id: string) => void
   onRename: (id: string, name: string) => void
+  onPreview: (id: string) => void
 }
 
-export function ClipList({ clips, exportingId, ffmpegLoading, onExport, onDelete, onRename }: Props) {
+export function ClipList({ clips, exportingId, ffmpegLoading, onExport, onDelete, onRename, onPreview }: Props) {
   return (
     <div className="clip-list">
       <div className="clip-list-header">Clips ({clips.length})</div>
@@ -25,6 +26,7 @@ export function ClipList({ clips, exportingId, ffmpegLoading, onExport, onDelete
           onExport={() => onExport(clip.id)}
           onDelete={() => onDelete(clip.id)}
           onRename={(name) => onRename(clip.id, name)}
+          onPreview={() => onPreview(clip.id)}
         />
       ))}
     </div>
@@ -39,9 +41,10 @@ interface ItemProps {
   onExport: () => void
   onDelete: () => void
   onRename: (name: string) => void
+  onPreview: () => void
 }
 
-function ClipItem({ clip, isExporting, isBlocked, ffmpegLoading, onExport, onDelete, onRename }: ItemProps) {
+function ClipItem({ clip, isExporting, isBlocked, ffmpegLoading, onExport, onDelete, onRename, onPreview }: ItemProps) {
   const [editing, setEditing] = useState(false)
   const [draftName, setDraftName] = useState(clip.name)
 
@@ -95,13 +98,18 @@ function ClipItem({ clip, isExporting, isBlocked, ffmpegLoading, onExport, onDel
         <span className="clip-duration"> · {formatTime(duration)}</span>
       </div>
 
-      <button
-        className={`btn btn-export-clip ${clip.exportStatus === 'done' ? 'btn-export-done' : ''}`}
-        onClick={onExport}
-        disabled={isExporting || isBlocked || clip.exportStatus === 'loading-ffmpeg'}
-      >
-        {exportLabel()}
-      </button>
+      <div className="clip-actions">
+        <button className="btn btn-secondary" onClick={onPreview}>
+          Preview
+        </button>
+        <button
+          className={`btn btn-export-clip ${clip.exportStatus === 'done' ? 'btn-export-done' : ''}`}
+          onClick={onExport}
+          disabled={isExporting || isBlocked || clip.exportStatus === 'loading-ffmpeg'}
+        >
+          {exportLabel()}
+        </button>
+      </div>
 
       {(isExporting || clip.exportStatus === 'loading-ffmpeg') && (
         <div className="clip-progress">

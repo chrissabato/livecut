@@ -494,6 +494,19 @@ body {
 
 .clip-duration { opacity: 0.7; }
 
+.clip-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.clip-actions .btn-secondary {
+  flex-shrink: 0;
+}
+
+.clip-actions .btn-export-clip {
+  flex: 1;
+}
+
 .btn-export-clip {
   background: var(--surface-2);
   color: var(--text);

@@ -210,6 +210,10 @@ export default function App() {
                   onExport={handleExportClip}
                   onDelete={handleDeleteClip}
                   onRename={handleRenameClip}
+                  onPreview={(id) => {
+                    const clip = clips.find((c) => c.id === id)
+                    if (clip) playerRef.current?.playSegment(clip.in, clip.out)
+                  }}
                 />
               )}
             </>

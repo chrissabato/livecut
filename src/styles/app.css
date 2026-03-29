@@ -146,6 +146,18 @@ body {
 .url-input:focus { border-color: var(--accent); }
 .url-input::placeholder { color: var(--text-muted); }
 
+/* ── Stream error ── */
+.stream-error {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #2d1010;
+  border: 1px solid #7f1d1d;
+  border-radius: var(--radius);
+  color: #fca5a5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 /* ── CORS note ── */
 .cors-note {
   font-size: 11px;

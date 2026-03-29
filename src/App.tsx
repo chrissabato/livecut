@@ -17,6 +17,7 @@ export default function App() {
   const [pendingName, setPendingName] = useState('')
   const [clips, setClips] = useState<Clip[]>([])
   const [exportingId, setExportingId] = useState<string | null>(null)
+  const [streamError, setStreamError] = useState<string | null>(null)
 
   const playerRef = useRef<PlayerHandle>(null)
   const { ffmpegRef, loading: ffmpegLoading, load: loadFFmpeg } = useFFmpeg()
@@ -34,6 +35,7 @@ export default function App() {
 
   const handleLoad = useCallback((url: string) => {
     setStreamUrl(url)
+    setStreamError(null)
     setPendingMarks({ in: null, out: null })
     setPendingName('')
     setClips([])
@@ -174,7 +176,12 @@ export default function App() {
         {/* ── Left: video ── */}
         <div className="video-column">
           {isPlayerVisible ? (
-            <Player ref={playerRef} src={streamUrl} />
+            <>
+              <Player ref={playerRef} src={streamUrl} onError={setStreamError} />
+              {streamError && (
+                <div className="stream-error">{streamError}</div>
+              )}
+            </>
           ) : (
             <div className="empty-state">
               <div className="empty-icon">▶</div>

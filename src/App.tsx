@@ -33,13 +33,29 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  const handleLoad = useCallback((url: string) => {
+  const handleLoad = useCallback(async (url: string) => {
     setStreamUrl(url)
     setStreamError(null)
     setPendingMarks({ in: null, out: null })
     setPendingName('')
     setClips([])
     setExportingId(null)
+
+    // Probe the URL so CORS/403 errors surface immediately rather than at export time
+    try {
+      const res = await fetch(url)
+      if (!res.ok) {
+        setStreamError(
+          `Failed to fetch playlist (${res.status}). ` +
+          `The stream URL must allow cross-origin access (CORS: Access-Control-Allow-Origin: *).`
+        )
+      }
+    } catch {
+      setStreamError(
+        'Failed to fetch playlist (CORS). ' +
+        'The stream URL must allow cross-origin access (CORS: Access-Control-Allow-Origin: *).'
+      )
+    }
   }, [])
 
   const handleMarkIn = useCallback(() => {

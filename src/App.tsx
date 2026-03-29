@@ -53,6 +53,10 @@ export default function App() {
     playerRef.current?.seekTo(time)
   }, [])
 
+  const handlePause = useCallback(() => {
+    playerRef.current?.pause()
+  }, [])
+
   const handleAdjustIn = useCallback((delta: number) => {
     setPendingMarks((m) => ({ ...m, in: Math.max(0, (m.in ?? 0) + delta) }))
   }, [])
@@ -181,6 +185,7 @@ export default function App() {
                 onClearIn={() => setPendingMarks((m) => ({ ...m, in: null }))}
                 onClearOut={() => setPendingMarks((m) => ({ ...m, out: null }))}
                 onSeekTo={handleSeekTo}
+                onPause={handlePause}
                 onAdjustIn={handleAdjustIn}
                 onAdjustOut={handleAdjustOut}
                 maxDuration={MAX_CLIP_DURATION}

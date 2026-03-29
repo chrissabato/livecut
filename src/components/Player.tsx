@@ -4,6 +4,7 @@ import Hls from 'hls.js'
 export interface PlayerHandle {
   getCurrentTime: () => number
   seekTo: (time: number) => void
+  pause: () => void
 }
 
 interface Props {
@@ -19,6 +20,7 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src }, ref) => {
     seekTo: (time: number) => {
       if (videoRef.current) videoRef.current.currentTime = time
     },
+    pause: () => videoRef.current?.pause(),
   }))
 
   useEffect(() => {

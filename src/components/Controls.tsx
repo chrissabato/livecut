@@ -13,6 +13,7 @@ interface Props {
   onClearIn: () => void
   onClearOut: () => void
   onSeekTo: (time: number) => void
+  onPause: () => void
   onAdjustIn: (delta: number) => void
   onAdjustOut: (delta: number) => void
   maxDuration: number
@@ -26,7 +27,7 @@ const STEPS = [-1, -0.1, 0.1, 1] as const
 
 export function Controls({
   marks, onMarkIn, onMarkOut, onClearIn, onClearOut,
-  onSeekTo, onAdjustIn, onAdjustOut, maxDuration,
+  onSeekTo, onPause, onAdjustIn, onAdjustOut, maxDuration,
   clipName, onClipNameChange, onAddClip, canAddClip,
 }: Props) {
   const duration = marks.in !== null && marks.out !== null ? marks.out - marks.in : null
@@ -60,7 +61,7 @@ export function Controls({
               <button
                 key={s}
                 className="btn-adjust"
-                onClick={() => { onAdjustIn(s); onSeekTo(Math.max(0, marks.in! + s)) }}
+                onClick={() => { onPause(); onAdjustIn(s); onSeekTo(Math.max(0, marks.in! + s)) }}
                 title={`${s > 0 ? '+' : ''}${s}s`}
               >
                 {s > 0 ? `+${s}s` : `${s}s`}
@@ -95,7 +96,7 @@ export function Controls({
               <button
                 key={s}
                 className="btn-adjust"
-                onClick={() => { onAdjustOut(s); onSeekTo(Math.max(0, marks.out! + s)) }}
+                onClick={() => { onPause(); onAdjustOut(s); onSeekTo(Math.max(0, marks.out! + s)) }}
                 title={`${s > 0 ? '+' : ''}${s}s`}
               >
                 {s > 0 ? `+${s}s` : `${s}s`}

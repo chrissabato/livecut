@@ -64,6 +64,15 @@ export default function App() {
     }
   }, [pendingMarks.in, pendingMarks.out])
 
+  const handleQuickClip = useCallback((seconds: number) => {
+    const t = playerRef.current?.getCurrentTime() ?? 0
+    setPendingMarks({ in: Math.max(0, t - seconds), out: t })
+  }, [])
+
+  const handleLive = useCallback(() => {
+    playerRef.current?.seekToLiveEdge()
+  }, [])
+
   const handleAdjustIn = useCallback((delta: number) => {
     setPendingMarks((m) => ({ ...m, in: Math.max(0, (m.in ?? 0) + delta) }))
   }, [])
@@ -200,6 +209,8 @@ export default function App() {
                 onClearOut={() => setPendingMarks((m) => ({ ...m, out: null }))}
                 onSeekTo={handleSeekTo}
                 onPause={handlePause}
+                onQuickClip={handleQuickClip}
+                onLive={handleLive}
                 onPreview={handlePreview}
                 onAdjustIn={handleAdjustIn}
                 onAdjustOut={handleAdjustOut}

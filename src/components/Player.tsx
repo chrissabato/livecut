@@ -6,6 +6,7 @@ export interface PlayerHandle {
   seekTo: (time: number) => void
   pause: () => void
   playSegment: (start: number, end: number) => void
+  seekToLiveEdge: () => void
 }
 
 interface Props {
@@ -22,6 +23,18 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src }, ref) => {
       if (videoRef.current) videoRef.current.currentTime = time
     },
     pause: () => videoRef.current?.pause(),
+    seekToLiveEdge: () => {
+      const video = videoRef.current
+      if (!video) return
+      const hls = hlsRef.current
+      let edge: number | null = null
+      if (hls?.liveSyncPosition != null) {
+        edge = hls.liveSyncPosition
+      } else if (video.seekable.length > 0) {
+        edge = video.seekable.end(video.seekable.length - 1)
+      }
+      if (edge != null) video.currentTime = Math.max(0, edge - 5)
+    },
     playSegment: (start: number, end: number) => {
       const video = videoRef.current
       if (!video) return

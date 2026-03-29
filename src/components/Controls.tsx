@@ -19,6 +19,8 @@ interface Props {
   maxDuration: number
   clipName: string
   onClipNameChange: (name: string) => void
+  onQuickClip: (seconds: number) => void
+  onLive: () => void
   onPreview: () => void
   onAddClip: () => void
   canAddClip: boolean
@@ -26,10 +28,12 @@ interface Props {
 
 const STEPS = [-1, -0.1, 0.1, 1] as const
 
+const QUICK_CLIPS = [3, 5, 10] as const
+
 export function Controls({
   marks, onMarkIn, onMarkOut, onClearIn, onClearOut,
   onSeekTo, onPause, onAdjustIn, onAdjustOut, maxDuration,
-  onPreview, clipName, onClipNameChange, onAddClip, canAddClip,
+  onQuickClip, onLive, onPreview, clipName, onClipNameChange, onAddClip, canAddClip,
 }: Props) {
   const duration = marks.in !== null && marks.out !== null ? marks.out - marks.in : null
   const overLimit = duration !== null && duration > maxDuration
@@ -37,6 +41,23 @@ export function Controls({
 
   return (
     <div className="controls">
+      {/* Quick clip + Live */}
+      <div className="quick-clip-row">
+        {QUICK_CLIPS.map((s) => (
+          <button
+            key={s}
+            className="btn btn-secondary"
+            onClick={() => onQuickClip(s)}
+            title={`Set clip: last ${s}s`}
+          >
+            -{s}s
+          </button>
+        ))}
+        <button className="btn btn-live" onClick={onLive} title="Jump to live edge">
+          Live
+        </button>
+      </div>
+
       {/* Mark In */}
       <div className="mark-section">
         <div className="mark-row">

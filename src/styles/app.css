@@ -307,6 +307,25 @@ body {
 .btn-secondary { background: var(--surface-2); color: var(--text); }
 .btn-secondary:hover:not(:disabled) { background: var(--surface-3, #3a3a3a); }
 
+.quick-clip-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.quick-clip-row .btn {
+  flex: 1;
+  font-size: 12px;
+}
+.btn-live {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border: 1px solid #991b1b;
+}
+.btn-live:hover:not(:disabled) {
+  background: #991b1b;
+  color: #fff;
+}
+
 .btn-mark {
   background: var(--surface-2);
   color: var(--text);

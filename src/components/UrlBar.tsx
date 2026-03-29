@@ -1,12 +1,12 @@
-import { useState } from 'react'
 
 interface Props {
   onLoad: (url: string) => void
   loading: boolean
+  value: string
+  onChange: (value: string) => void
 }
 
-export function UrlBar({ onLoad, loading }: Props) {
-  const [value, setValue] = useState('')
+export function UrlBar({ onLoad, loading, value, onChange }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,7 +21,7 @@ export function UrlBar({ onLoad, loading }: Props) {
         className="url-input"
         placeholder="Paste .m3u8 stream URL…"
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         spellCheck={false}
         autoComplete="off"
         required

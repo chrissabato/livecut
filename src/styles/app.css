@@ -393,6 +393,15 @@ body {
   font-size: 10px;
   word-break: break-all;
 }
+.sample-url {
+  cursor: pointer;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.sample-url:hover {
+  background: var(--accent);
+  color: #fff;
+}
 
 /* ── Add clip row (inside Controls) ── */
 .add-clip-row {

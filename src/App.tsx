@@ -12,6 +12,7 @@ declare const __APP_VERSION__: string
 
 export default function App() {
   const [streamUrl, setStreamUrl] = useState('')
+  const [urlInput, setUrlInput] = useState('')
   const [pendingMarks, setPendingMarks] = useState<{ in: number | null; out: number | null }>({ in: null, out: null })
   const [pendingName, setPendingName] = useState('')
   const [clips, setClips] = useState<Clip[]>([])
@@ -170,7 +171,14 @@ export default function App() {
               <div className="empty-icon">▶</div>
               <p>Paste an .m3u8 URL to get started</p>
               <p className="empty-hint">
-                Try: <code>https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8</code>
+                Try:{' '}
+                <code
+                  className="sample-url"
+                  onClick={() => setUrlInput('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8')}
+                  title="Click to use this URL"
+                >
+                  https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+                </code>
               </p>
             </div>
           )}
@@ -178,7 +186,7 @@ export default function App() {
 
         {/* ── Right: sidebar ── */}
         <aside className="sidebar">
-          <UrlBar onLoad={handleLoad} loading={false} />
+          <UrlBar onLoad={handleLoad} loading={false} value={urlInput} onChange={setUrlInput} />
 
           <p className="cors-note">Stream must allow cross-origin access (CORS).</p>
 

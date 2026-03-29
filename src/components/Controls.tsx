@@ -15,6 +15,7 @@ interface Props {
   onSeekTo: (time: number) => void
   onAdjustIn: (delta: number) => void
   onAdjustOut: (delta: number) => void
+  maxDuration: number
   clipName: string
   onClipNameChange: (name: string) => void
   onAddClip: () => void
@@ -25,9 +26,11 @@ const STEPS = [-1, -0.1, 0.1, 1] as const
 
 export function Controls({
   marks, onMarkIn, onMarkOut, onClearIn, onClearOut,
-  onSeekTo, onAdjustIn, onAdjustOut,
+  onSeekTo, onAdjustIn, onAdjustOut, maxDuration,
   clipName, onClipNameChange, onAddClip, canAddClip,
 }: Props) {
+  const duration = marks.in !== null && marks.out !== null ? marks.out - marks.in : null
+  const overLimit = duration !== null && duration > maxDuration
   const nameRef = useRef<HTMLInputElement>(null)
 
   return (
@@ -103,9 +106,16 @@ export function Controls({
       </div>
 
       {marks.in !== null && marks.out !== null && (
-        marks.out <= marks.in
-          ? <div className="mark-error">Out point must be after in point.</div>
-          : <div className="clip-duration-hint">Duration: <strong>{formatTime(marks.out - marks.in)}</strong></div>
+        marks.out <= marks.in ? (
+          <div className="mark-error">Out point must be after in point.</div>
+        ) : overLimit ? (
+          <div className="mark-warning">
+            Clip is {formatTime(duration!)} — exceeds the {formatTime(maxDuration)} limit.
+            Long clips may exhaust browser memory.
+          </div>
+        ) : (
+          <div className="clip-duration-hint">Duration: <strong>{formatTime(duration!)}</strong></div>
+        )
       )}
 
       {/* Add clip */}

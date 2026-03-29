@@ -283,6 +283,11 @@ body {
   color: var(--error);
 }
 
+.mark-warning {
+  font-size: 11px;
+  color: #f59e0b;
+}
+
 /* ── Buttons ── */
 .btn {
   border: none;

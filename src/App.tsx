@@ -61,10 +61,18 @@ export default function App() {
     setPendingMarks((m) => ({ ...m, out: Math.max(0, (m.out ?? 0) + delta) }))
   }, [])
 
+  const MAX_CLIP_DURATION = 240 // 4 minutes
+
+  const pendingDuration =
+    pendingMarks.in !== null && pendingMarks.out !== null
+      ? pendingMarks.out - pendingMarks.in
+      : 0
+
   const canAddClip =
     pendingMarks.in !== null &&
     pendingMarks.out !== null &&
-    pendingMarks.out > pendingMarks.in
+    pendingMarks.out > pendingMarks.in &&
+    pendingDuration <= MAX_CLIP_DURATION
 
   const handleAddClip = useCallback(() => {
     if (!canAddClip || pendingMarks.in === null || pendingMarks.out === null) return
@@ -175,6 +183,7 @@ export default function App() {
                 onSeekTo={handleSeekTo}
                 onAdjustIn={handleAdjustIn}
                 onAdjustOut={handleAdjustOut}
+                maxDuration={MAX_CLIP_DURATION}
                 clipName={pendingName}
                 onClipNameChange={setPendingName}
                 onAddClip={handleAddClip}

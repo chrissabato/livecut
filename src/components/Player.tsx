@@ -121,6 +121,7 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src, onError }, ref) =>
         className="player-video"
         controls
         playsInline
+        muted
       />
     </div>
   )

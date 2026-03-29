@@ -1,12 +1,19 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import Hls from 'hls.js'
 
+export interface HlsFragment {
+  uri: string
+  startTime: number
+  duration: number
+}
+
 export interface PlayerHandle {
   getCurrentTime: () => number
   seekTo: (time: number) => void
   pause: () => void
   playSegment: (start: number, end: number) => void
   seekToLiveEdge: () => void
+  getFragments: () => HlsFragment[] | null
 }
 
 interface Props {
@@ -24,6 +31,14 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src, onError }, ref) =>
       if (videoRef.current) videoRef.current.currentTime = time
     },
     pause: () => videoRef.current?.pause(),
+    getFragments: () => {
+      const hls = hlsRef.current
+      if (!hls) return null
+      const levelIndex = hls.currentLevel >= 0 ? hls.currentLevel : 0
+      const frags = hls.levels[levelIndex]?.details?.fragments
+      if (!frags) return null
+      return frags.map((f) => ({ uri: f.url, startTime: f.start, duration: f.duration }))
+    },
     seekToLiveEdge: () => {
       const video = videoRef.current
       if (!video) return

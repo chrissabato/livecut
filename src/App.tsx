@@ -161,7 +161,9 @@ export default function App() {
       const onProgress = (p: ExportProgress) =>
         updateClip({ exportProgress: p.percent })
 
-      const blob = await clipVideo(streamUrl, clip.in, clip.out, currentFfmpeg, onProgress)
+      const fragments = playerRef.current?.getFragments()
+      const source = fragments ?? streamUrl
+      const blob = await clipVideo(source, clip.in, clip.out, currentFfmpeg, onProgress)
 
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')

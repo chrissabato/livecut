@@ -1,5 +1,5 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { parsePlaylist } from './m3u8Parser'
+import { parsePlaylist, Segment } from './m3u8Parser'
 
 export interface ExportProgress {
   stage: string
@@ -14,15 +14,17 @@ export interface ExportProgress {
  * Uses -c copy (stream copy) — no re-encoding, fast, keyframe-accurate trim.
  */
 export async function clipVideo(
-  m3u8Url: string,
+  m3u8UrlOrSegments: string | Segment[],
   inTime: number,
   outTime: number,
   ffmpeg: FFmpeg,
   onProgress: (p: ExportProgress) => void
 ): Promise<Blob> {
-  // 1. Parse playlist
+  // 1. Parse playlist (or use pre-parsed segments from HLS.js to avoid re-fetching expired URLs)
   onProgress({ stage: 'Parsing playlist…', percent: 2 })
-  const playlist = await parsePlaylist(m3u8Url)
+  const playlist = Array.isArray(m3u8UrlOrSegments)
+    ? { segments: m3u8UrlOrSegments, totalDuration: m3u8UrlOrSegments.reduce((s, f) => s + f.duration, 0) }
+    : await parsePlaylist(m3u8UrlOrSegments)
 
   // 2. Filter to segments that overlap [inTime, outTime]
   const segments = playlist.segments.filter(

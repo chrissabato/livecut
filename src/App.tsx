@@ -19,8 +19,8 @@ export default function App() {
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [streamError, setStreamError] = useState<string | null>(null)
   const [usingProxy, setUsingProxy] = useState(false)
-  const [proxyUrl, setProxyUrl] = useState<string>(
-    () => localStorage.getItem('livecut-proxy') ?? 'https://proxy.chrissabato.dev'
+  const [proxyUrl] = useState<string>(
+    () => localStorage.getItem('livecut-proxy') ?? import.meta.env.VITE_PROXY_URL ?? ''
   )
 
   const applyProxy = useCallback((url: string) => {
@@ -28,10 +28,6 @@ export default function App() {
     return p ? `${p}?url=${encodeURIComponent(url)}` : url
   }, [proxyUrl])
 
-  const handleProxyChange = useCallback((val: string) => {
-    setProxyUrl(val)
-    localStorage.setItem('livecut-proxy', val)
-  }, [])
 
   const playerRef = useRef<PlayerHandle>(null)
   const { ffmpegRef, loading: ffmpegLoading, load: loadFFmpeg } = useFFmpeg()
@@ -260,17 +256,6 @@ export default function App() {
         <aside className="sidebar">
           <UrlBar onLoad={handleLoad} loading={false} value={urlInput} onChange={setUrlInput} />
 
-          <div className="proxy-row">
-            <input
-              className="proxy-input"
-              type="url"
-              placeholder="Proxy URL (optional)…"
-              value={proxyUrl}
-              onChange={(e) => handleProxyChange(e.target.value)}
-              spellCheck={false}
-              autoComplete="off"
-            />
-          </div>
 
           {isPlayerVisible && (
             <>

@@ -43,6 +43,8 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          VITE_PROXY_URL: ${{ vars.PROXY_URL }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -20,7 +20,7 @@ export default function App() {
   const [streamError, setStreamError] = useState<string | null>(null)
   const [usingProxy, setUsingProxy] = useState(false)
   const [proxyUrl, setProxyUrl] = useState<string>(
-    () => localStorage.getItem('livecut-proxy') ?? ''
+    () => localStorage.getItem('livecut-proxy') ?? 'https://proxy.chrissabato.dev'
   )
 
   const applyProxy = useCallback((url: string) => {

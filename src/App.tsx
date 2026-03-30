@@ -10,6 +10,11 @@ import { Clip } from './lib/types'
 
 declare const __APP_VERSION__: string
 
+declare function gtag(...args: unknown[]): void
+const track = (event: string, params: Record<string, unknown>) => {
+  if (typeof gtag !== 'undefined') gtag('event', event, params)
+}
+
 export default function App() {
   const [streamUrl, setStreamUrl] = useState('')
   const [urlInput, setUrlInput] = useState('')
@@ -86,6 +91,7 @@ export default function App() {
     }
 
     setStreamUrl(finalUrl)
+    track('stream_loaded', { stream_url: url, via_proxy: finalUrl !== url })
   }, [applyProxy, proxyUrl])
 
   const handleMarkIn = useCallback(() => {
@@ -156,6 +162,7 @@ export default function App() {
     setClips((prev) => [...prev, newClip])
     setPendingMarks({ in: null, out: null })
     setPendingName('')
+    track('clip_added', { duration_seconds: Math.round(pendingMarks.out! - pendingMarks.in!) })
   }, [canAddClip, pendingMarks, pendingName, clips.length])
 
   const handleDeleteClip = useCallback((id: string) => {
@@ -203,6 +210,11 @@ export default function App() {
       setTimeout(() => URL.revokeObjectURL(url), 60_000)
 
       updateClip({ exportStatus: 'done', exportProgress: 100 })
+      track('clip_exported', {
+        stream_url: urlInput,
+        duration_seconds: Math.round(clip.out - clip.in),
+        via_proxy: usingProxy,
+      })
     } catch (err) {
       updateClip({ exportStatus: 'error', exportError: err instanceof Error ? err.message : String(err) })
     } finally {

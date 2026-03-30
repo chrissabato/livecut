@@ -18,6 +18,7 @@ export default function App() {
   const [clips, setClips] = useState<Clip[]>([])
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [streamError, setStreamError] = useState<string | null>(null)
+  const [usingProxy, setUsingProxy] = useState(false)
   const [proxyUrl, setProxyUrl] = useState<string>(
     () => localStorage.getItem('livecut-proxy') ?? ''
   )
@@ -48,6 +49,7 @@ export default function App() {
 
   const handleLoad = useCallback(async (url: string) => {
     setStreamError(null)
+    setUsingProxy(false)
     setPendingMarks({ in: null, out: null })
     setPendingName('')
     setClips([])
@@ -73,6 +75,8 @@ export default function App() {
           const res = await fetch(finalUrl)
           if (!res.ok) {
             setStreamError(`Failed to fetch playlist (${res.status}) — even via proxy.`)
+          } else {
+            setUsingProxy(true)
           }
         } catch {
           setStreamError('Failed to fetch playlist — proxy unreachable.')
@@ -218,6 +222,7 @@ export default function App() {
         <h1 className="app-title">LiveCut</h1>
         <span className="app-subtitle">HLS stream clipper</span>
         <span className="app-version">v{__APP_VERSION__}</span>
+        {usingProxy && <span className="proxy-badge">via proxy</span>}
       </header>
 
       <main className="app-main">

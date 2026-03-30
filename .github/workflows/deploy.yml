@@ -41,6 +41,10 @@ jobs:
           git commit -m "chore: bump version to $(node -p "require('./package.json').version") [skip ci]"
           git push
 
+      - name: Inject environment variables
+        run: |
+          sed -i "s|__GA_MEASUREMENT_ID__|${{ vars.GA_MEASUREMENT_ID }}|g" index.html
+
       - name: Build
         run: npm run build
         env:

@@ -33,13 +33,18 @@ Exports are downloaded directly to your machine. Nothing leaves your browser.
 - **4-minute clip limit** — warns before you queue a clip that could exhaust browser memory
 - **Keyboard shortcuts** — `I` to mark in, `O` to mark out while playing
 - **No re-encoding** — uses stream copy (`-c copy`) so exports are fast and lossless
+- **Automatic CORS proxy fallback** — tries the stream directly first; only routes through a proxy if needed
 - **Early error detection** — CORS/403 errors are shown immediately on load, not at export time
 
 ---
 
 ## CORS requirement
 
-The stream URL must be publicly accessible with `Access-Control-Allow-Origin: *` headers. Streams behind authentication or without CORS support will not work. If you see a 403 or CORS error on load, see the workarounds below.
+The stream URL must be publicly accessible with `Access-Control-Allow-Origin: *` headers. Streams behind authentication or without CORS support will not work directly, but the built-in proxy fallback handles most cases automatically.
+
+### How the proxy works
+
+LiveCut tries every stream URL directly first. If that fails (CORS or 403), it automatically retries through a proxy. Only the playlist fetch goes through the proxy — video segments are fetched directly from the CDN, so proxy bandwidth usage is minimal.
 
 ### Workarounds for blocked streams
 
@@ -80,11 +85,41 @@ npm run dev
 
 Requires Node 18+. The dev server sets the required COOP/COEP headers automatically.
 
+For local development with a proxy, create a `.env.local` file (not committed):
+```
+VITE_PROXY_URL=https://your-proxy-url.example.com
+```
+
+---
+
 ## Deploying
 
 Push to `main` — GitHub Actions builds and deploys to GitHub Pages automatically, and bumps the patch version on each deploy.
 
 Settings → Pages → Source must be set to **GitHub Actions** (one-time setup).
+
+### GitHub Actions variables
+
+The following repository variables must be set under **Settings → Secrets and variables → Actions → Variables**:
+
+| Variable | Description |
+|---|---|
+| `PROXY_URL` | CORS proxy URL (e.g. `https://proxy.example.com`) |
+| `GA_MEASUREMENT_ID` | Google Analytics 4 measurement ID (e.g. `G-XXXXXXXXXX`) |
+
+These are injected at build time and do not appear in the source code.
+
+---
+
+## Analytics
+
+Usage is tracked via Google Analytics 4. The following custom events are recorded:
+
+| Event | Parameters |
+|---|---|
+| `stream_loaded` | `stream_url`, `via_proxy` |
+| `clip_added` | `duration_seconds` |
+| `clip_exported` | `stream_url`, `duration_seconds`, `via_proxy` |
 
 ---
 

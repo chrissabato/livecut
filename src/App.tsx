@@ -18,6 +18,19 @@ export default function App() {
   const [clips, setClips] = useState<Clip[]>([])
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [streamError, setStreamError] = useState<string | null>(null)
+  const [proxyUrl, setProxyUrl] = useState<string>(
+    () => localStorage.getItem('livecut-proxy') ?? ''
+  )
+
+  const applyProxy = useCallback((url: string) => {
+    const p = proxyUrl.trim().replace(/\/$/, '')
+    return p ? `${p}?url=${encodeURIComponent(url)}` : url
+  }, [proxyUrl])
+
+  const handleProxyChange = useCallback((val: string) => {
+    setProxyUrl(val)
+    localStorage.setItem('livecut-proxy', val)
+  }, [])
 
   const playerRef = useRef<PlayerHandle>(null)
   const { ffmpegRef, loading: ffmpegLoading, load: loadFFmpeg } = useFFmpeg()
@@ -34,29 +47,46 @@ export default function App() {
   })
 
   const handleLoad = useCallback(async (url: string) => {
-    setStreamUrl(url)
     setStreamError(null)
     setPendingMarks({ in: null, out: null })
     setPendingName('')
     setClips([])
     setExportingId(null)
 
-    // Probe the URL so CORS/403 errors surface immediately rather than at export time
+    // Try direct first; fall back to proxy only if it fails
+    let finalUrl = url
+    let directFailed = false
+
     try {
       const res = await fetch(url)
-      if (!res.ok) {
+      if (!res.ok) directFailed = true
+    } catch {
+      directFailed = true
+    }
+
+    if (directFailed) {
+      const proxy = proxyUrl.trim()
+      if (proxy) {
+        finalUrl = applyProxy(url)
+        // Verify proxy also works
+        try {
+          const res = await fetch(finalUrl)
+          if (!res.ok) {
+            setStreamError(`Failed to fetch playlist (${res.status}) — even via proxy.`)
+          }
+        } catch {
+          setStreamError('Failed to fetch playlist — proxy unreachable.')
+        }
+      } else {
         setStreamError(
-          `Failed to fetch playlist (${res.status}). ` +
-          `The stream URL must allow cross-origin access (CORS: Access-Control-Allow-Origin: *).`
+          'Failed to fetch playlist (CORS). ' +
+          'The stream URL must allow cross-origin access, or set a proxy URL below.'
         )
       }
-    } catch {
-      setStreamError(
-        'Failed to fetch playlist (CORS). ' +
-        'The stream URL must allow cross-origin access (CORS: Access-Control-Allow-Origin: *).'
-      )
     }
-  }, [])
+
+    setStreamUrl(finalUrl)
+  }, [applyProxy, proxyUrl])
 
   const handleMarkIn = useCallback(() => {
     const t = playerRef.current?.getCurrentTime() ?? 0
@@ -225,7 +255,17 @@ export default function App() {
         <aside className="sidebar">
           <UrlBar onLoad={handleLoad} loading={false} value={urlInput} onChange={setUrlInput} />
 
-          <p className="cors-note">Stream must allow cross-origin access (CORS).</p>
+          <div className="proxy-row">
+            <input
+              className="proxy-input"
+              type="url"
+              placeholder="Proxy URL (optional)…"
+              value={proxyUrl}
+              onChange={(e) => handleProxyChange(e.target.value)}
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
 
           {isPlayerVisible && (
             <>

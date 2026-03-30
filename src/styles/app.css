@@ -182,16 +182,22 @@ body {
 }
 .stream-error-dismiss:hover { opacity: 1; }
 
-/* ── CORS note ── */
-.cors-note {
-  font-size: 11px;
-  color: var(--text-muted);
-  padding: 6px 8px;
+/* ── Proxy input ── */
+.proxy-row {
+  display: flex;
+}
+.proxy-input {
+  flex: 1;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  line-height: 1.4;
+  color: var(--text);
+  font-size: 11px;
+  padding: 5px 8px;
+  outline: none;
 }
+.proxy-input:focus { border-color: var(--accent); }
+.proxy-input::placeholder { color: var(--text-muted); }
 
 /* ── Controls ── */
 .controls {

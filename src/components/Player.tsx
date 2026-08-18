@@ -7,13 +7,18 @@ export interface HlsFragment {
   duration: number
 }
 
+export interface HlsFragments {
+  video: HlsFragment[]
+  audio: HlsFragment[] | null
+}
+
 export interface PlayerHandle {
   getCurrentTime: () => number
   seekTo: (time: number) => void
   pause: () => void
   playSegment: (start: number, end: number) => void
   seekToLiveEdge: () => void
-  getFragments: () => HlsFragment[] | null
+  getFragments: () => HlsFragments | null
 }
 
 interface Props {
@@ -35,9 +40,20 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src, onError }, ref) =>
       const hls = hlsRef.current
       if (!hls) return null
       const levelIndex = hls.currentLevel >= 0 ? hls.currentLevel : 0
-      const frags = hls.levels[levelIndex]?.details?.fragments
-      if (!frags) return null
-      return frags.map((f) => ({ uri: f.url, startTime: f.start, duration: f.duration }))
+      const videoFrags = hls.levels[levelIndex]?.details?.fragments
+      if (!videoFrags) return null
+      const video = videoFrags.map((f) => ({ uri: f.url, startTime: f.start, duration: f.duration }))
+
+      // Separate AUDIO-group rendition (common with e.g. JW Player/Unified
+      // Streaming feeds), if one is in use — video-only segments don't carry it.
+      let audio: HlsFragment[] | null = null
+      const audioTrack = hls.audioTrack >= 0 ? hls.audioTracks[hls.audioTrack] : undefined
+      const audioFrags = audioTrack?.details?.fragments
+      if (audioFrags) {
+        audio = audioFrags.map((f) => ({ uri: f.url, startTime: f.start, duration: f.duration }))
+      }
+
+      return { video, audio }
     },
     seekToLiveEdge: () => {
       const video = videoRef.current

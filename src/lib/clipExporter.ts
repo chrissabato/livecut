@@ -6,71 +6,100 @@ export interface ExportProgress {
   percent: number // 0–100
 }
 
+export interface TrackSegments {
+  video: Segment[]
+  audio: Segment[] | null
+}
+
 /**
  * Downloads the relevant HLS segments for [inTime, outTime], writes them to
  * FFmpeg's virtual filesystem, concatenates them, trims to the exact range,
  * and returns the result as an MP4 Blob.
  *
+ * Some streams (e.g. JW Player / Unified Streaming feeds) publish audio as a
+ * separate AUDIO-group rendition rather than muxing it into the video
+ * segments — when that's the case, both tracks are downloaded and muxed
+ * together in the final FFmpeg pass.
+ *
  * Uses -c copy (stream copy) — no re-encoding, fast, keyframe-accurate trim.
  */
 export async function clipVideo(
-  m3u8UrlOrSegments: string | Segment[],
+  source: string | TrackSegments,
   inTime: number,
   outTime: number,
   ffmpeg: FFmpeg,
   onProgress: (p: ExportProgress) => void
 ): Promise<Blob> {
-  // 1. Parse playlist (or use pre-parsed segments from HLS.js to avoid re-fetching expired URLs)
+  // 1. Resolve segments (or use pre-parsed segments from HLS.js to avoid re-fetching expired URLs)
   onProgress({ stage: 'Parsing playlist…', percent: 2 })
-  const playlist = Array.isArray(m3u8UrlOrSegments)
-    ? { segments: m3u8UrlOrSegments, totalDuration: m3u8UrlOrSegments.reduce((s, f) => s + f.duration, 0) }
-    : await parsePlaylist(m3u8UrlOrSegments)
+  let videoSegments: Segment[]
+  let audioSegments: Segment[] | null
 
-  // 2. Filter to segments that overlap [inTime, outTime]
-  const segments = playlist.segments.filter(
-    (seg) => seg.startTime < outTime && seg.startTime + seg.duration > inTime
-  )
+  if (typeof source === 'string') {
+    const playlist = await parsePlaylist(source)
+    videoSegments = playlist.video.segments
+    audioSegments = playlist.audio?.segments ?? null
+  } else {
+    videoSegments = source.video
+    audioSegments = source.audio
+  }
 
-  if (segments.length === 0) {
+  // 2. Filter each track to segments that overlap [inTime, outTime]
+  const inRange = (segs: Segment[]) =>
+    segs.filter((seg) => seg.startTime < outTime && seg.startTime + seg.duration > inTime)
+
+  const videoInRange = inRange(videoSegments)
+  if (videoInRange.length === 0) {
     throw new Error('No segments found for the selected time range.')
   }
+  const audioInRange = audioSegments ? inRange(audioSegments) : null
 
   // 3. Download segments and write to FFmpeg virtual FS
-  const segmentFiles: string[] = []
+  const totalSegments = videoInRange.length + (audioInRange?.length ?? 0)
+  let downloaded = 0
 
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i]
-    const downloadPct = (i / segments.length) * 55 // 0–55%
-    onProgress({
-      stage: `Downloading segment ${i + 1} of ${segments.length}…`,
-      percent: Math.round(5 + downloadPct),
-    })
+  const downloadTrack = async (segs: Segment[], prefix: string): Promise<string[]> => {
+    const files: string[] = []
+    for (let i = 0; i < segs.length; i++) {
+      downloaded++
+      onProgress({
+        stage: `Downloading segment ${downloaded} of ${totalSegments}…`,
+        percent: Math.round(5 + (downloaded / totalSegments) * 55),
+      })
 
-    const res = await fetch(seg.uri)
-    if (!res.ok) {
-      throw new Error(
-        `Failed to download segment ${i + 1} (HTTP ${res.status}). ` +
-        `Check that the stream allows cross-origin requests.`
-      )
+      const res = await fetch(segs[i].uri)
+      if (!res.ok) {
+        throw new Error(
+          `Failed to download segment (HTTP ${res.status}). ` +
+          `Check that the stream allows cross-origin requests.`
+        )
+      }
+
+      const data = new Uint8Array(await res.arrayBuffer())
+      const filename = `${prefix}${i.toString().padStart(4, '0')}.ts`
+      await ffmpeg.writeFile(filename, data)
+      files.push(filename)
     }
-
-    const data = new Uint8Array(await res.arrayBuffer())
-    const filename = `seg${i.toString().padStart(4, '0')}.ts`
-    await ffmpeg.writeFile(filename, data)
-    segmentFiles.push(filename)
+    return files
   }
 
-  // 4. Write concat list
+  const videoFiles = await downloadTrack(videoInRange, 'vseg')
+  const audioFiles = audioInRange && audioInRange.length > 0
+    ? await downloadTrack(audioInRange, 'aseg')
+    : null
+
+  // 4. Write concat lists
   onProgress({ stage: 'Preparing segments…', percent: 62 })
-  const concatContent = segmentFiles.map((f) => `file '${f}'`).join('\n')
-  await ffmpeg.writeFile('concat.txt', concatContent)
+  await ffmpeg.writeFile('concat.txt', videoFiles.map((f) => `file '${f}'`).join('\n'))
+  if (audioFiles) {
+    await ffmpeg.writeFile('audioconcat.txt', audioFiles.map((f) => `file '${f}'`).join('\n'))
+  }
 
-  // 5. Calculate trim offsets within the concatenated file
-  const firstSegStart = segments[0].startTime
-  const trimStart = Math.max(0, inTime - firstSegStart)
+  // 5. Calculate trim offsets within each concatenated track
   const duration = outTime - inTime
+  const trimStartVideo = Math.max(0, inTime - videoInRange[0].startTime)
 
-  // 6. Run FFmpeg: concat → trim → MP4
+  // 6. Run FFmpeg: concat → trim → mux → MP4
   onProgress({ stage: 'Processing with FFmpeg…', percent: 65 })
 
   const progressHandler = ({ progress }: { progress: number }) => {
@@ -82,17 +111,24 @@ export async function clipVideo(
   }
   ffmpeg.on('progress', progressHandler)
 
+  const args = [
+    '-f', 'concat', '-safe', '0',
+    '-ss', trimStartVideo.toFixed(3), '-t', duration.toFixed(3),
+    '-i', 'concat.txt',
+  ]
+  if (audioFiles) {
+    const trimStartAudio = Math.max(0, inTime - audioInRange![0].startTime)
+    args.push(
+      '-f', 'concat', '-safe', '0',
+      '-ss', trimStartAudio.toFixed(3), '-t', duration.toFixed(3),
+      '-i', 'audioconcat.txt',
+      '-map', '0:v:0', '-map', '1:a:0'
+    )
+  }
+  args.push('-c', 'copy', '-movflags', '+faststart', 'output.mp4')
+
   try {
-    await ffmpeg.exec([
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', 'concat.txt',
-      '-ss', trimStart.toFixed(3),
-      '-t', duration.toFixed(3),
-      '-c', 'copy',
-      '-movflags', '+faststart',
-      'output.mp4',
-    ])
+    await ffmpeg.exec(args)
   } finally {
     ffmpeg.off('progress', progressHandler)
   }
@@ -102,7 +138,13 @@ export async function clipVideo(
   const outputData = await ffmpeg.readFile('output.mp4') as Uint8Array<ArrayBuffer>
 
   // 8. Cleanup virtual FS
-  const filesToDelete = [...segmentFiles, 'concat.txt', 'output.mp4']
+  const filesToDelete = [
+    ...videoFiles,
+    ...(audioFiles ?? []),
+    'concat.txt',
+    ...(audioFiles ? ['audioconcat.txt'] : []),
+    'output.mp4',
+  ]
   await Promise.all(filesToDelete.map((f) => ffmpeg.deleteFile(f).catch(() => {})))
 
   onProgress({ stage: 'Done!', percent: 100 })

@@ -41,6 +41,22 @@ jobs:
           git commit -m "chore: bump version to $(node -p "require('./package.json').version") [skip ci]"
           git push
 
+      - name: Build clean release (no analytics/proxy baked in)
+        run: |
+          sed -i "/<!-- GA:START -->/,/<!-- GA:END -->/d" index.html
+          npm run build
+          (cd dist && zip -r ../livecut-dist.zip .)
+          git checkout -- index.html
+
+      - name: Publish release zip
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release create "v$VERSION" livecut-dist.zip \
+            --title "v$VERSION" \
+            --notes "Static build of LiveCut v$VERSION. Unzip and copy the contents onto any static web server — no build step required. See README for details."
+
       - name: Inject environment variables
         run: |
           sed -i "s|__GA_MEASUREMENT_ID__|${{ vars.GA_MEASUREMENT_ID }}|g" index.html

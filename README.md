@@ -92,9 +92,17 @@ VITE_PROXY_URL=https://your-proxy-url.example.com
 
 ---
 
+## Dropping onto your own server
+
+No need to build anything — grab the prebuilt static files from the [**Releases** page](https://github.com/chrissabato/livecut/releases), unzip, and copy the contents onto any static web host (Apache, Nginx, S3, etc.). A fresh zip is published automatically on every deploy.
+
+This build has no analytics or CORS proxy baked in. If you need a proxy for streams that block CORS, set `VITE_PROXY_URL` and rebuild from source instead (see above).
+
+---
+
 ## Deploying
 
-Push to `main` — GitHub Actions builds and deploys to GitHub Pages automatically, and bumps the patch version on each deploy.
+Push to `main` — GitHub Actions builds and deploys to GitHub Pages automatically, and bumps the patch version on each deploy. It also publishes a clean static build (no analytics/proxy) as a zip attached to a new [GitHub Release](https://github.com/chrissabato/livecut/releases), for anyone who wants to self-host.
 
 Settings → Pages → Source must be set to **GitHub Actions** (one-time setup).
 

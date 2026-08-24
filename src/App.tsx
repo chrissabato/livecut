@@ -3,6 +3,7 @@ import { UrlBar } from './components/UrlBar'
 import { Player, PlayerHandle } from './components/Player'
 import { Controls } from './components/Controls'
 import { ClipList } from './components/ClipList'
+import { SettingsModal } from './components/SettingsModal'
 import { useFFmpeg } from './hooks/useFFmpeg'
 import { clipVideo, ExportProgress } from './lib/clipExporter'
 import { formatTimeForFilename } from './lib/formatTime'
@@ -24,9 +25,20 @@ export default function App() {
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [streamError, setStreamError] = useState<string | null>(null)
   const [usingProxy, setUsingProxy] = useState(false)
-  const [proxyUrl] = useState<string>(
+  const [proxyUrl, setProxyUrl] = useState<string>(
     () => localStorage.getItem('livecut-proxy') ?? import.meta.env.VITE_PROXY_URL ?? ''
   )
+  const [showSettings, setShowSettings] = useState(false)
+
+  const handleSaveProxyUrl = useCallback((url: string) => {
+    if (url) {
+      localStorage.setItem('livecut-proxy', url)
+      setProxyUrl(url)
+    } else {
+      localStorage.removeItem('livecut-proxy')
+      setProxyUrl(import.meta.env.VITE_PROXY_URL ?? '')
+    }
+  }, [])
 
   const applyProxy = useCallback((url: string) => {
     const p = proxyUrl.trim().replace(/\/$/, '')
@@ -231,7 +243,24 @@ export default function App() {
         <span className="app-subtitle">HLS stream clipper</span>
         <span className="app-version">v{__APP_VERSION__}</span>
         {usingProxy && <span className="proxy-badge">via proxy</span>}
+        <button
+          type="button"
+          className="settings-trigger"
+          onClick={() => setShowSettings(true)}
+          title="Advanced settings"
+          aria-label="Advanced settings"
+        >
+          ⚙
+        </button>
       </header>
+
+      {showSettings && (
+        <SettingsModal
+          proxyUrl={proxyUrl}
+          onSave={handleSaveProxyUrl}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
 
       <main className="app-main">
         {/* ── Left: video ── */}

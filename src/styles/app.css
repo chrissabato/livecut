@@ -194,22 +194,100 @@ body {
 }
 .stream-error-dismiss:hover { opacity: 1; }
 
-/* ── Proxy input ── */
-.proxy-row {
-  display: flex;
+/* ── Settings (gear icon + advanced modal) ── */
+.settings-trigger {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px;
+  margin-left: 8px;
+  cursor: pointer;
+  opacity: 0.4;
+  border-radius: 3px;
+  transition: opacity 0.15s, color 0.15s;
 }
-.proxy-input {
-  flex: 1;
+.settings-trigger:hover {
+  opacity: 1;
+  color: var(--text);
+}
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 20;
+}
+
+.settings-modal {
+  width: 100%;
+  max-width: 380px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  color: var(--text);
-  font-size: 11px;
-  padding: 5px 8px;
-  outline: none;
+  padding: 16px;
 }
-.proxy-input:focus { border-color: var(--accent); }
-.proxy-input::placeholder { color: var(--text-muted); }
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.settings-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.15s;
+}
+.settings-close:hover { color: var(--text); }
+
+.settings-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.settings-input {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.settings-input:focus { border-color: var(--accent); }
+.settings-input::placeholder { color: var(--text-muted); }
+
+.settings-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
 
 /* ── Controls ── */
 .controls {

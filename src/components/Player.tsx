@@ -104,7 +104,9 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src, onError }, ref) =>
       hls.on(Hls.Events.ERROR, (_evt, data) => {
         if (data.fatal) {
           console.error('[HLS] Fatal error:', data)
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          if (data.details === Hls.ErrorDetails.KEY_LOAD_ERROR || data.details === Hls.ErrorDetails.KEY_SYSTEM_NO_KEYS) {
+            onError?.('This stream is DRM-encrypted and cannot be played — LiveCut only supports unencrypted HLS streams.')
+          } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
             const code = (data.response as { code?: number } | undefined)?.code
             if (code === 403) {
               onError?.('Failed to fetch playlist (403). The stream URL must allow cross-origin access (CORS: Access-Control-Allow-Origin: *).')

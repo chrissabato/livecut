@@ -25,18 +25,29 @@ export default function App() {
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [streamError, setStreamError] = useState<string | null>(null)
   const [usingProxy, setUsingProxy] = useState(false)
-  const [proxyUrl, setProxyUrl] = useState<string>(
-    () => localStorage.getItem('livecut-proxy') ?? import.meta.env.VITE_PROXY_URL ?? ''
+  // Raw per-browser override only — empty unless the user has explicitly set one.
+  const [proxyOverride, setProxyOverride] = useState<string>(
+    () => localStorage.getItem('livecut-proxy') ?? ''
   )
+  const proxyUrl = proxyOverride || (import.meta.env.VITE_PROXY_URL ?? '')
   const [showSettings, setShowSettings] = useState(false)
 
+  useEffect(() => {
+    if (proxyOverride) {
+      console.log(`[LiveCut] Proxy URL: ${proxyOverride} (source: localStorage override)`)
+    } else if (import.meta.env.VITE_PROXY_URL) {
+      console.log(`[LiveCut] Proxy URL: ${import.meta.env.VITE_PROXY_URL} (source: VITE_PROXY_URL build var)`)
+    } else {
+      console.log('[LiveCut] Proxy URL: none configured')
+    }
+  }, [proxyOverride])
+
   const handleSaveProxyUrl = useCallback((url: string) => {
+    setProxyOverride(url)
     if (url) {
       localStorage.setItem('livecut-proxy', url)
-      setProxyUrl(url)
     } else {
       localStorage.removeItem('livecut-proxy')
-      setProxyUrl(import.meta.env.VITE_PROXY_URL ?? '')
     }
   }, [])
 
@@ -80,21 +91,27 @@ export default function App() {
     }
 
     if (directFailed) {
+      console.log(`[LiveCut] Direct fetch failed for ${url}, falling back to proxy`)
       const proxy = proxyUrl.trim()
       if (proxy) {
         finalUrl = applyProxy(url)
+        console.log(`[LiveCut] Using proxy: ${proxy} -> ${finalUrl}`)
         // Verify proxy also works
         try {
           const res = await fetch(finalUrl)
           if (!res.ok) {
+            console.log(`[LiveCut] Proxy fetch failed (${res.status}): ${finalUrl}`)
             setStreamError(`Failed to fetch playlist (${res.status}) — even via proxy.`)
           } else {
+            console.log(`[LiveCut] Proxy fetch succeeded: ${finalUrl}`)
             setUsingProxy(true)
           }
-        } catch {
+        } catch (err) {
+          console.log(`[LiveCut] Proxy unreachable: ${finalUrl}`, err)
           setStreamError('Failed to fetch playlist — proxy unreachable.')
         }
       } else {
+        console.log('[LiveCut] No proxy configured, cannot fall back')
         setStreamError(
           'Failed to fetch playlist (CORS). ' +
           'The stream URL must allow cross-origin access, or set a proxy URL below.'
@@ -256,7 +273,7 @@ export default function App() {
 
       {showSettings && (
         <SettingsModal
-          proxyUrl={proxyUrl}
+          proxyUrl={proxyOverride}
           onSave={handleSaveProxyUrl}
           onClose={() => setShowSettings(false)}
         />

@@ -6,6 +6,7 @@ import { ClipList } from './components/ClipList'
 import { SettingsModal } from './components/SettingsModal'
 import { useFFmpeg } from './hooks/useFFmpeg'
 import { clipVideo, ExportProgress } from './lib/clipExporter'
+import { coversRange } from './lib/m3u8Parser'
 import { formatTimeForFilename } from './lib/formatTime'
 import { Clip } from './lib/types'
 
@@ -227,8 +228,15 @@ export default function App() {
       const onProgress = (p: ExportProgress) =>
         updateClip({ exportProgress: p.percent })
 
+      // Prefer HLS.js's already-loaded fragments (avoids re-fetching possibly
+      // expired segment URLs), but only if its sliding window still covers the
+      // marked range — otherwise re-parse the playlist fresh.
       const fragments = playerRef.current?.getFragments()
-      const source = fragments ?? streamUrl
+      const fragmentsCover =
+        !!fragments &&
+        coversRange(fragments.video, clip.in, clip.out) &&
+        (!fragments.audio || coversRange(fragments.audio, clip.in, clip.out))
+      const source = fragmentsCover ? fragments! : streamUrl
       const blob = await clipVideo(source, clip.in, clip.out, currentFfmpeg, onProgress)
 
       const url = URL.createObjectURL(blob)

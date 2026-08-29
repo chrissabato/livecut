@@ -2,6 +2,10 @@ export interface Segment {
   uri: string
   duration: number
   startTime: number // cumulative start time within the stream
+  /** True when this segment is preceded by an #EXT-X-DISCONTINUITY tag. */
+  discontinuity?: boolean
+  /** Program date-time (epoch ms) for the start of this segment, if the playlist carries it. */
+  pdt?: number | null
 }
 
 export interface Track {
@@ -66,11 +70,28 @@ function parseMediaPlaylistText(text: string, baseUrl: string): Track {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const segments: Segment[] = []
   let cumulative = 0
+  let pendingDiscontinuity = false
+  // Running program date-time. An explicit tag resets it; otherwise it advances
+  // by each segment's duration so every segment gets an absolute anchor.
+  let currentPdt: number | null = null
 
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith('#EXTINF:')) {
+    const line = lines[i]
+
+    if (line === '#EXT-X-DISCONTINUITY') {
+      pendingDiscontinuity = true
+      continue
+    }
+
+    if (line.startsWith('#EXT-X-PROGRAM-DATE-TIME:')) {
+      const parsed = Date.parse(line.slice('#EXT-X-PROGRAM-DATE-TIME:'.length).trim())
+      currentPdt = isNaN(parsed) ? currentPdt : parsed
+      continue
+    }
+
+    if (line.startsWith('#EXTINF:')) {
       // Duration is everything between ':' and ',' (some playlists omit the comma)
-      const raw = lines[i].slice(8).split(',')[0]
+      const raw = line.slice(8).split(',')[0]
       const duration = parseFloat(raw)
       if (isNaN(duration)) continue
 
@@ -78,8 +99,16 @@ function parseMediaPlaylistText(text: string, baseUrl: string): Track {
       if (!rawUri || rawUri.startsWith('#')) continue
 
       const uri = resolveUri(rawUri, baseUrl)
-      segments.push({ uri, duration, startTime: cumulative })
+      segments.push({
+        uri,
+        duration,
+        startTime: cumulative,
+        discontinuity: pendingDiscontinuity,
+        pdt: currentPdt,
+      })
       cumulative += duration
+      if (currentPdt != null) currentPdt += duration * 1000
+      pendingDiscontinuity = false
       i++ // skip the URI line
     }
   }
@@ -134,4 +163,18 @@ function extractAudioGroupUri(text: string, groupId: string, baseUrl: string): s
 function resolveUri(uri: string, baseUrl: string): string {
   if (uri.startsWith('http://') || uri.startsWith('https://')) return uri
   return new URL(uri, baseUrl).href
+}
+
+/**
+ * Whether the given (time-ordered) segment list actually spans [inTime, outTime].
+ * Live playlists only retain a sliding window, so marks set a while ago can fall
+ * off the front before export — in which case the clip would be silently
+ * truncated or misaligned.
+ */
+export function coversRange(segments: Segment[], inTime: number, outTime: number): boolean {
+  if (segments.length === 0) return false
+  const first = segments[0]
+  const last = segments[segments.length - 1]
+  const EPS = 0.5 // tolerate sub-second rounding in EXTINF durations
+  return first.startTime <= inTime + EPS && last.startTime + last.duration >= outTime - EPS
 }

@@ -5,6 +5,8 @@ export interface HlsFragment {
   uri: string
   startTime: number
   duration: number
+  discontinuity?: boolean
+  pdt?: number | null
 }
 
 export interface HlsFragments {
@@ -42,7 +44,15 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src, onError }, ref) =>
       const levelIndex = hls.currentLevel >= 0 ? hls.currentLevel : 0
       const videoFrags = hls.levels[levelIndex]?.details?.fragments
       if (!videoFrags) return null
-      const video = videoFrags.map((f) => ({ uri: f.url, startTime: f.start, duration: f.duration }))
+      const toFragment = (f: (typeof videoFrags)[number], i: number, all: typeof videoFrags): HlsFragment => ({
+        uri: f.url,
+        startTime: f.start,
+        duration: f.duration,
+        // hls.js exposes the HLS discontinuity-sequence counter as `cc`.
+        discontinuity: i > 0 && f.cc !== all[i - 1].cc,
+        pdt: f.programDateTime ?? null,
+      })
+      const video = videoFrags.map(toFragment)
 
       // Separate AUDIO-group rendition (common with e.g. JW Player/Unified
       // Streaming feeds), if one is in use — video-only segments don't carry it.
@@ -50,7 +60,7 @@ export const Player = forwardRef<PlayerHandle, Props>(({ src, onError }, ref) =>
       const audioTrack = hls.audioTrack >= 0 ? hls.audioTracks[hls.audioTrack] : undefined
       const audioFrags = audioTrack?.details?.fragments
       if (audioFrags) {
-        audio = audioFrags.map((f) => ({ uri: f.url, startTime: f.start, duration: f.duration }))
+        audio = audioFrags.map(toFragment)
       }
 
       return { video, audio }

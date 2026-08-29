@@ -1,5 +1,5 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { parsePlaylist, Segment } from './m3u8Parser'
+import { parsePlaylist, coversRange, Segment } from './m3u8Parser'
 
 export interface ExportProgress {
   stage: string
@@ -44,7 +44,18 @@ export async function clipVideo(
     audioSegments = source.audio
   }
 
-  // 2. Filter each track to segments that overlap [inTime, outTime]
+  // 2a. Make sure the marked range is actually inside the available segment
+  //     window. Live playlists only keep recent segments, so marks set a while
+  //     ago can roll off the front — exporting anyway would silently truncate
+  //     the clip and knock audio/video out of alignment.
+  const windowError =
+    'The selected range is outside the currently available stream window. ' +
+    'Live streams only keep recent segments — mark the clip sooner after it airs, ' +
+    'or load a DVR/VOD URL.'
+  if (!coversRange(videoSegments, inTime, outTime)) throw new Error(windowError)
+  if (audioSegments && !coversRange(audioSegments, inTime, outTime)) throw new Error(windowError)
+
+  // 2b. Filter each track to segments that overlap [inTime, outTime]
   const inRange = (segs: Segment[]) =>
     segs.filter((seg) => seg.startTime < outTime && seg.startTime + seg.duration > inTime)
 
@@ -53,6 +64,16 @@ export async function clipVideo(
     throw new Error('No segments found for the selected time range.')
   }
   const audioInRange = audioSegments ? inRange(audioSegments) : null
+
+  const crossesDiscontinuity =
+    videoInRange.some((s, i) => i > 0 && s.discontinuity) ||
+    (audioInRange?.some((s, i) => i > 0 && s.discontinuity) ?? false)
+  if (crossesDiscontinuity) {
+    console.warn(
+      '[LiveCut] Selected range crosses an #EXT-X-DISCONTINUITY — timestamps reset ' +
+      'mid-clip; audio/video sync across the boundary may vary by player.'
+    )
+  }
 
   // 3. Download segments and write to FFmpeg virtual FS
   const totalSegments = videoInRange.length + (audioInRange?.length ?? 0)
@@ -95,9 +116,40 @@ export async function clipVideo(
     await ffmpeg.writeFile('audioconcat.txt', audioFiles.map((f) => `file '${f}'`).join('\n'))
   }
 
-  // 5. Calculate trim offsets within each concatenated track
-  const duration = outTime - inTime
-  const trimStartVideo = Math.max(0, inTime - videoInRange[0].startTime)
+  // 5. Calculate trim offsets within each concatenated track.
+  //
+  //    When audio is a separate rendition it has its own segment boundaries, and
+  //    when parsed from the playlist its timeline is an independent sum of
+  //    (rounded) EXTINF durations — so `inTime - audioSeg[0].startTime` and
+  //    `inTime - videoSeg[0].startTime` drift apart the deeper into the stream
+  //    you clip, which is what pulls the exported audio out of sync. Anchor the
+  //    audio seek to the *same wall-clock instant* as the video seek using
+  //    PROGRAM-DATE-TIME when the playlist carries it; fall back to the shared
+  //    segment timeline otherwise. Both inputs then zero-base to the same point.
+  let duration = outTime - inTime
+  let trimStartVideo = Math.max(0, inTime - videoInRange[0].startTime)
+  let trimStartAudio = 0
+
+  if (audioFiles) {
+    const vSeg = videoInRange[0]
+    const aSeg = audioInRange![0]
+    // Video-axis time that the first in-range audio segment begins at.
+    const audioBaseOnVideoAxis =
+      vSeg.pdt != null && aSeg.pdt != null
+        ? vSeg.startTime + (aSeg.pdt - vSeg.pdt) / 1000
+        : aSeg.startTime
+    trimStartAudio = inTime - audioBaseOnVideoAxis
+
+    // Can't seek before the start of the concatenated audio — if the aligned
+    // offset is negative, push both cuts later by the shortfall so they stay
+    // locked together (the clip just starts that fraction of a second later).
+    if (trimStartAudio < 0) {
+      const shift = -trimStartAudio
+      trimStartAudio = 0
+      trimStartVideo += shift
+      duration -= shift
+    }
+  }
 
   // 6. Run FFmpeg: concat → trim → mux → MP4
   onProgress({ stage: 'Processing with FFmpeg…', percent: 65 })
@@ -111,21 +163,27 @@ export async function clipVideo(
   }
   ffmpeg.on('progress', progressHandler)
 
-  const args = [
-    '-f', 'concat', '-safe', '0',
-    '-ss', trimStartVideo.toFixed(3), '-t', duration.toFixed(3),
-    '-i', 'concat.txt',
-  ]
+  const args: string[] = []
+  // #EXT-X-DISCONTINUITY resets PTS mid-stream; rebuild timestamps so concat
+  // doesn't emit jumps that players interpret as A/V drift.
+  if (crossesDiscontinuity) args.push('-fflags', '+genpts')
+
+  args.push('-f', 'concat', '-safe', '0', '-ss', trimStartVideo.toFixed(3), '-i', 'concat.txt')
   if (audioFiles) {
-    const trimStartAudio = Math.max(0, inTime - audioInRange![0].startTime)
-    args.push(
-      '-f', 'concat', '-safe', '0',
-      '-ss', trimStartAudio.toFixed(3), '-t', duration.toFixed(3),
-      '-i', 'audioconcat.txt',
-      '-map', '0:v:0', '-map', '1:a:0'
-    )
+    args.push('-f', 'concat', '-safe', '0', '-ss', trimStartAudio.toFixed(3), '-i', 'audioconcat.txt')
   }
-  args.push('-c', 'copy', '-movflags', '+faststart', 'output.mp4')
+
+  args.push('-t', duration.toFixed(3))
+  if (audioFiles) args.push('-map', '0:v:0', '-map', '1:a:0')
+  args.push(
+    '-c', 'copy',
+    // Keyframe-snapped video seeks leave a short pre-roll with negative
+    // timestamps; normalise it so the muxer doesn't offset one track vs the other.
+    '-avoid_negative_ts', 'make_zero',
+    '-muxdelay', '0', '-muxpreload', '0',
+    '-movflags', '+faststart',
+    'output.mp4'
+  )
 
   try {
     await ffmpeg.exec(args)

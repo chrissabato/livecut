@@ -58,6 +58,19 @@ Then paste `http://localhost:8010/your-stream.m3u8` into LiveCut.
 
 ---
 
+## Desktop app
+
+Some streams can't be fixed from a browser at all — the CDN blocks the request based on `Origin`/`Referer` and returns 403, or sends no CORS headers on the video segments. The **LiveCut desktop app** is a thin [Electron](https://www.electronjs.org/) shell that loads this same site and strips/rewrites those headers at the network layer, so those streams just work.
+
+- **Download:** [Releases page](https://github.com/chrissabato/livecut/releases) — look for the latest `desktop-v*` release (macOS `.dmg`, Windows `.exe`; Intel + Apple Silicon / x64 + arm64).
+- **Auto-updating content:** the desktop app loads the live site, so UI, export logic, and parser fixes reach it through the normal deploy — no re-download. You only re-download when the shell itself changes.
+- **Windows SmartScreen:** the Windows build is currently unsigned. Windows shows *"Windows protected your PC"* — click **More info → Run anyway**. The macOS build is signed and notarized and opens normally.
+- **Not supported:** DRM/Widevine streams, streams that need a login/auth cookie, and fully-offline export (FFmpeg core still downloads on first export).
+
+The shell lives in [`electron/`](electron/) and has its own README with dev/build/release details.
+
+---
+
 ## Technical notes
 
 ### How exporting works

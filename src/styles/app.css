@@ -83,6 +83,18 @@ body {
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
+.desktop-badge {
+  margin-left: 10px;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: #1f2937;
+  color: #93c5fd;
+  border: 1px solid #1e40af;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  letter-spacing: 0.03em;
+}
+
 /* ── Main two-column layout ── */
 .app-main {
   flex: 1;
@@ -193,6 +205,19 @@ body {
   opacity: 0.7;
 }
 .stream-error-dismiss:hover { opacity: 1; }
+
+/* Shown in the browser build only, on a CORS/403 error — points at the desktop app. */
+.desktop-cta {
+  display: block;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #7f1d1d;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.desktop-cta:hover { color: var(--accent-hover); text-decoration: underline; }
 
 /* ── Settings (gear icon + advanced modal) ── */
 .settings-trigger {

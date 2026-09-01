@@ -17,6 +17,16 @@ const track = (event: string, params: Record<string, unknown>) => {
   if (typeof gtag !== 'undefined') gtag('event', event, params)
 }
 
+// True only inside the LiveCut Electron desktop shell (see `electron/`), which
+// defeats CORS/403 at the network layer. Undefined -> false in a plain browser.
+const isDesktop = !!window.livecut?.isDesktop
+
+// Matches the CORS/403 error strings produced in `handleLoad` below and in
+// `Player.tsx` ("... (CORS) ..." / "... (403) ..."). Used to decide whether to
+// surface the "get the desktop app" call-to-action.
+const isCorsLikeError = (msg: string | null): boolean =>
+  !!msg && (msg.includes('CORS') || msg.includes('(403)'))
+
 export default function App() {
   const [streamUrl, setStreamUrl] = useState('')
   const [urlInput, setUrlInput] = useState('')
@@ -30,12 +40,18 @@ export default function App() {
   const [proxyOverride, setProxyOverride] = useState<string>(
     () => localStorage.getItem('livecut-proxy') ?? ''
   )
-  const proxyUrl = proxyOverride || (import.meta.env.VITE_PROXY_URL ?? '')
+  // On desktop the shell fixes CORS itself, so ignore the baked-in build proxy —
+  // but still honor an explicit per-browser override set via the gear.
+  const proxyUrl = isDesktop
+    ? proxyOverride
+    : proxyOverride || (import.meta.env.VITE_PROXY_URL ?? '')
   const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
     if (proxyOverride) {
       console.log(`[LiveCut] Proxy URL: ${proxyOverride} (source: localStorage override)`)
+    } else if (isDesktop) {
+      console.log('[LiveCut] Proxy URL: none — desktop shell handles CORS at the network layer')
     } else if (import.meta.env.VITE_PROXY_URL) {
       console.log(`[LiveCut] Proxy URL: ${import.meta.env.VITE_PROXY_URL} (source: VITE_PROXY_URL build var)`)
     } else {
@@ -228,9 +244,9 @@ export default function App() {
       const onProgress = (p: ExportProgress) =>
         updateClip({ exportProgress: p.percent })
 
-      // Prefer HLS.js's already-loaded fragments (avoids re-fetching possibly
-      // expired segment URLs), but only if its sliding window still covers the
-      // marked range — otherwise re-parse the playlist fresh.
+      // Prefer HLS.js's already-loaded fragments (carries captured segment bytes
+      // and avoids re-fetching possibly expired URLs), but only if its retained
+      // window still covers the marked range — otherwise re-parse the playlist.
       const fragments = playerRef.current?.getFragments()
       const fragmentsCover =
         !!fragments &&
@@ -267,6 +283,9 @@ export default function App() {
         <h1 className="app-title">LiveCut</h1>
         <span className="app-subtitle">HLS stream clipper</span>
         <span className="app-version">v{__APP_VERSION__}</span>
+        {isDesktop && window.livecut?.version && (
+          <span className="desktop-badge">desktop {window.livecut.version}</span>
+        )}
         {usingProxy && <span className="proxy-badge">via proxy</span>}
         <button
           type="button"
@@ -312,6 +331,16 @@ export default function App() {
             <div className="stream-error-overlay">
               <div className="stream-error-box">
                 {streamError}
+                {!isDesktop && isCorsLikeError(streamError) && (
+                  <a
+                    className="desktop-cta"
+                    href="https://github.com/chrissabato/livecut/releases"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Streams that block CORS work in the LiveCut desktop app — download it here
+                  </a>
+                )}
                 <button className="stream-error-dismiss" onClick={() => setStreamError(null)}>×</button>
               </div>
             </div>

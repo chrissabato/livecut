@@ -1,7 +1,7 @@
 {
   "name": "livecut-desktop",
   "productName": "LiveCut",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Thin Electron shell for LiveCut — loads the deployed site and defeats CORS/403 at the network layer.",
   "author": "Christopher Sabato",
   "private": true,
@@ -16,8 +16,8 @@
   "devDependencies": {
     "concurrently": "^9",
     "cross-env": "^7",
-    "electron": "^32",
-    "electron-builder": "^25",
+    "electron": "^44.1.1",
+    "electron-builder": "^26.15.3",
     "wait-on": "^8"
   }
 }

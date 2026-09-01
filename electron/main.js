@@ -5,17 +5,17 @@ const path = require('path')
 const https = require('https')
 const fs = require('fs')
 
-// Windows (ARM64 especially) hits Chromium GPU-process crashes that black out
-// the window a few seconds after load. Fully disable the GPU path there — the
-// perf hit is minor for a mostly-web-view app. LIVECUT_GPU=1 forces it back on;
-// LIVECUT_NO_GPU=1 forces it off anywhere.
+// Mild hedge against GPU-driver flakiness on Windows/ARM64 — software
+// compositing, but keep SwiftShader out of it (its own source of ARM64
+// crashes). LIVECUT_GPU=1 forces HW accel back on; LIVECUT_NO_GPU=1 forces it
+// off anywhere. (The renderer 0xC0000005 crashes on Electron 32 were a runtime
+// bug, not GPU — fixed by moving to a current Electron.)
 const forceNoGpu = process.env.LIVECUT_NO_GPU === '1'
 const forceGpu = process.env.LIVECUT_GPU === '1'
-const GPU_DISABLED = forceNoGpu || (process.platform === 'win32' && !forceGpu)
+const isWinArm = process.platform === 'win32' && process.arch === 'arm64'
+const GPU_DISABLED = forceNoGpu || (isWinArm && !forceGpu)
 if (GPU_DISABLED) {
   app.disableHardwareAcceleration()
-  app.commandLine.appendSwitch('disable-gpu')
-  app.commandLine.appendSwitch('disable-gpu-compositing')
 }
 
 // ── Load target ─────────────────────────────────────────────────────────────

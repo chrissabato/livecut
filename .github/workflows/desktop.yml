@@ -32,7 +32,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install shell deps
         run: npm --prefix electron ci
@@ -93,6 +93,8 @@ jobs:
               printf '%s\n\n' "$NOTES_INPUT"
             fi
             echo "LiveCut desktop shell v$VERSION. Loads the live site and defeats CORS/403 at the network layer."
+            echo
+            echo "Requires macOS 12+ or Windows 10 1809+ (Electron 44 runtime)."
             echo
             echo "### Windows (unsigned)"
             echo "SmartScreen will show \"Windows protected your PC\". Click **More info -> Run anyway**."

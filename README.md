@@ -62,14 +62,14 @@ Then paste `http://localhost:8010/your-stream.m3u8` into LiveCut.
 
 Some streams can't be fixed from a browser at all — the CDN blocks the request based on `Origin`/`Referer` and returns 403, or sends no CORS headers on the video segments. The **LiveCut desktop app** is a thin [Electron](https://www.electronjs.org/) shell that loads this same site and strips/rewrites those headers at the network layer, so those streams just work.
 
-**Download (v1.0.2):**
+**Download (v1.0.3):**
 
 | Platform | |
 |---|---|
-| macOS — Apple Silicon | [LiveCut-1.0.2-arm64.dmg](https://github.com/chrissabato/livecut/releases/download/desktop-v1.0.2/LiveCut-1.0.2-arm64.dmg) |
-| macOS — Intel | [LiveCut-1.0.2-x64.dmg](https://github.com/chrissabato/livecut/releases/download/desktop-v1.0.2/LiveCut-1.0.2-x64.dmg) |
-| Windows — x64 | [LiveCut-1.0.2-x64.exe](https://github.com/chrissabato/livecut/releases/download/desktop-v1.0.2/LiveCut-1.0.2-x64.exe) |
-| Windows — ARM64 | [LiveCut-1.0.2-arm64.exe](https://github.com/chrissabato/livecut/releases/download/desktop-v1.0.2/LiveCut-1.0.2-arm64.exe) |
+| macOS — Apple Silicon | [LiveCut-1.0.3-arm64.dmg](https://github.com/chrissabato/livecut/releases/download/desktop-v1.0.3/LiveCut-1.0.3-arm64.dmg) |
+| macOS — Intel | [LiveCut-1.0.3-x64.dmg](https://github.com/chrissabato/livecut/releases/download/desktop-v1.0.3/LiveCut-1.0.3-x64.dmg) |
+| Windows — x64 | [LiveCut-1.0.3-x64.exe](https://github.com/chrissabato/livecut/releases/download/desktop-v1.0.3/LiveCut-1.0.3-x64.exe) |
+| Windows — ARM64 | [LiveCut-1.0.3-arm64.exe](https://github.com/chrissabato/livecut/releases/download/desktop-v1.0.3/LiveCut-1.0.3-arm64.exe) |
 
 All builds, notes, and older versions: [releases page](https://github.com/chrissabato/livecut/releases) (`desktop-v*` tags).
 

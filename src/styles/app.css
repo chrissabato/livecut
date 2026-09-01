@@ -83,6 +83,21 @@ body {
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
+/* Persistent desktop-app link (browser build only). Takes the right-side auto
+   margin; .app-version then sits next to it via the header's gap. */
+.desktop-link {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2px 9px;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.desktop-link:hover { color: var(--accent); border-color: var(--accent); }
+
 .desktop-badge {
   margin-left: 10px;
   font-size: 10px;

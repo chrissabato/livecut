@@ -289,6 +289,17 @@ export default function App() {
       <header className="app-header">
         <h1 className="app-title">LiveCut</h1>
         <span className="app-subtitle">HLS stream clipper</span>
+        {!isDesktop && (
+          <a
+            className="desktop-link"
+            href={DESKTOP_RELEASE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Desktop app — plays streams that browsers block (CORS / 403)"
+          >
+            ↓ Desktop app
+          </a>
+        )}
         <span className="app-version">v{__APP_VERSION__}</span>
         {isDesktop && window.livecut?.version && (
           <span className="desktop-badge">desktop {window.livecut.version}</span>

@@ -3,6 +3,18 @@
 const { app, BrowserWindow, session, shell, dialog } = require('electron')
 const path = require('path')
 const https = require('https')
+const fs = require('fs')
+
+// Windows on ARM64 hits frequent Chromium GPU-process crashes that black out the
+// window a few seconds after load. Software compositing avoids it; the perf hit
+// is minor for a mostly-web-view app. Override with LIVECUT_GPU=1 to force GPU
+// on, or LIVECUT_NO_GPU=1 to force it off anywhere.
+const forceNoGpu = process.env.LIVECUT_NO_GPU === '1'
+const forceGpu = process.env.LIVECUT_GPU === '1'
+const isWinArm = process.platform === 'win32' && process.arch === 'arm64'
+if (forceNoGpu || (isWinArm && !forceGpu)) {
+  app.disableHardwareAcceleration()
+}
 
 // ── Load target ─────────────────────────────────────────────────────────────
 const REMOTE_URL = 'https://chrissabato.github.io/livecut/'
@@ -142,6 +154,15 @@ function createWindow () {
     if (isMainFrame && code !== -3 /* ERR_ABORTED */) showErrorScreen()
   })
 
+  // Renderer / GPU crash recovery — reload a few times, then show the error page
+  // instead of leaving a black window (the window's backgroundColor).
+  wc.on('render-process-gone', (_e, details) => {
+    logCrash('render-process-gone', details)
+    if (details.reason === 'clean-exit') return
+    recoverFromCrash()
+  })
+  wc.on('unresponsive', () => logCrash('unresponsive', {}))
+
   if (IS_DEV) wc.openDevTools({ mode: 'detach' })
 
   mainWindow.loadURL(TARGET_URL)
@@ -162,6 +183,33 @@ function showErrorScreen () {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.loadFile(path.join(__dirname, 'error.html'))
   }
+}
+
+// ── Crash logging + recovery ──────────────────────────────────────────────
+// crash.log lives in userData: %APPDATA%\LiveCut on Windows,
+// ~/Library/Application Support/LiveCut on macOS.
+function logCrash (kind, details) {
+  const line = `${new Date().toISOString()}  ${kind}  ${JSON.stringify(details)}\n`
+  console.error('[LiveCut]', line.trim())
+  try {
+    fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'), line)
+  } catch { /* best effort */ }
+}
+
+let crashReloads = 0
+let crashReloadReset = null
+function recoverFromCrash () {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  crashReloads++
+  clearTimeout(crashReloadReset)
+  crashReloadReset = setTimeout(() => { crashReloads = 0 }, 60000)
+  if (crashReloads > 3) {
+    showErrorScreen()
+    return
+  }
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(TARGET_URL)
+  }, 500)
 }
 
 // ── Optional, non-blocking update nudge ────────────────────────────────────
@@ -245,6 +293,14 @@ if (!app.requestSingleInstanceLock()) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()
     }
+  })
+
+  // GPU / utility subprocess crashes (the usual cause of a black window on
+  // Windows/ARM). A GPU crash on its own doesn't fire render-process-gone, so
+  // log it and nudge a reload to re-establish compositing.
+  app.on('child-process-gone', (_e, details) => {
+    logCrash('child-process-gone', details)
+    if (details.type === 'GPU' && details.reason !== 'clean-exit') recoverFromCrash()
   })
 
   app.whenReady().then(() => {

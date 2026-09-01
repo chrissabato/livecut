@@ -7,9 +7,11 @@ files:
   - preload.js
   - error.html
   - package.json
-  - entitlements.mac.plist
 
 electronLanguages: [en]
+
+# Hyphenated, space-free asset names (default NSIS name is "LiveCut Setup x.y.z.exe").
+artifactName: ${productName}-${version}-${arch}.${ext}
 
 mac:
   category: public.app-category.video

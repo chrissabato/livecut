@@ -100,16 +100,20 @@ jobs:
             echo "Signed with Developer ID and notarized — opens with no Gatekeeper warning."
           } > "$NOTES_FILE"
 
-          FILES=$(find artifacts -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.blockmap' \))
-          if [ -z "$FILES" ]; then
+          # NUL-delimited so filenames with spaces survive (NSIS default name).
+          mapfile -d '' -t FILES < <(
+            find artifacts -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.blockmap' \) -print0
+          )
+          if [ ${#FILES[@]} -eq 0 ]; then
             echo "No installer artifacts found" >&2
             exit 1
           fi
+          printf 'asset: %s\n' "${FILES[@]}"
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" $FILES --clobber
+            gh release upload "$TAG" "${FILES[@]}" --clobber
           else
-            gh release create "$TAG" $FILES \
+            gh release create "$TAG" "${FILES[@]}" \
               --title "LiveCut Desktop v$VERSION" \
               --notes-file "$NOTES_FILE"
           fi

@@ -6,6 +6,11 @@ export interface Segment {
   discontinuity?: boolean
   /** Program date-time (epoch ms) for the start of this segment, if the playlist carries it. */
   pdt?: number | null
+  /**
+   * Raw segment bytes, when captured live by the player. Present -> the exporter
+   * uses these and skips the network fetch. Never set by the playlist parser.
+   */
+  data?: Uint8Array
 }
 
 export interface Track {

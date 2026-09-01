@@ -83,20 +83,35 @@ export async function clipVideo(
     const files: string[] = []
     for (let i = 0; i < segs.length; i++) {
       downloaded++
-      onProgress({
-        stage: `Downloading segment ${downloaded} of ${totalSegments}…`,
-        percent: Math.round(5 + (downloaded / totalSegments) * 55),
-      })
 
-      const res = await fetch(segs[i].uri)
-      if (!res.ok) {
-        throw new Error(
-          `Failed to download segment (HTTP ${res.status}). ` +
-          `Check that the stream allows cross-origin requests.`
-        )
+      // Prefer bytes the player already captured — immune to signed-URL expiry
+      // and segment CORS. Only hit the network for segments no longer buffered.
+      const buffered = segs[i].data
+      let data: Uint8Array
+      if (buffered && buffered.byteLength > 0) {
+        onProgress({
+          stage: `Reading buffered segment ${downloaded} of ${totalSegments}…`,
+          percent: Math.round(5 + (downloaded / totalSegments) * 55),
+        })
+        // ffmpeg.writeFile transfers (detaches) the ArrayBuffer, so hand it a
+        // copy — the original must survive for a later export of an overlapping clip.
+        data = buffered.slice()
+      } else {
+        onProgress({
+          stage: `Downloading segment ${downloaded} of ${totalSegments}…`,
+          percent: Math.round(5 + (downloaded / totalSegments) * 55),
+        })
+        const res = await fetch(segs[i].uri)
+        if (!res.ok) {
+          throw new Error(
+            `Failed to download segment (HTTP ${res.status}). ` +
+            `The segment is no longer in the player's buffer and its URL has expired — ` +
+            `mark the clip sooner after it airs, or use a DVR/VOD URL.`
+          )
+        }
+        data = new Uint8Array(await res.arrayBuffer())
       }
 
-      const data = new Uint8Array(await res.arrayBuffer())
       const filename = `${prefix}${i.toString().padStart(4, '0')}.ts`
       await ffmpeg.writeFile(filename, data)
       files.push(filename)
@@ -116,42 +131,24 @@ export async function clipVideo(
     await ffmpeg.writeFile('audioconcat.txt', audioFiles.map((f) => `file '${f}'`).join('\n'))
   }
 
-  // 5. Calculate trim offsets within each concatenated track.
+  // 5. Build the FFmpeg argument list. Two very different paths:
   //
-  //    When audio is a separate rendition it has its own segment boundaries, and
-  //    when parsed from the playlist its timeline is an independent sum of
-  //    (rounded) EXTINF durations — so `inTime - audioSeg[0].startTime` and
-  //    `inTime - videoSeg[0].startTime` drift apart the deeper into the stream
-  //    you clip, which is what pulls the exported audio out of sync. Anchor the
-  //    audio seek to the *same wall-clock instant* as the video seek using
-  //    PROGRAM-DATE-TIME when the playlist carries it; fall back to the shared
-  //    segment timeline otherwise. Both inputs then zero-base to the same point.
-  let duration = outTime - inTime
-  let trimStartVideo = Math.max(0, inTime - videoInRange[0].startTime)
-  let trimStartAudio = 0
+  //    (a) Muxed A/V (one concat). ffmpeg's concat-demuxer seek is unreliable,
+  //        and with -c copy it drops the partial GOP of video before the first
+  //        keyframe while keeping that span's audio — then papers over the
+  //        missing video with an empty edit (elst mediaTime=-1). Players that
+  //        ignore empty edits (browsers included) render the whole clip a second
+  //        or two out of sync. So we DON'T seek: the concat already starts on
+  //        the first in-range segment's boundary (an IDR with aligned audio),
+  //        and we only cap the tail with -t. The clip therefore begins at that
+  //        segment boundary — up to one segment duration (typically 2–6 s)
+  //        before the marked in-point.
+  //
+  //    (b) Separate AUDIO-group rendition. Each track is its own concat with its
+  //        own boundaries; input-seek both, anchoring the audio seek to the same
+  //        wall-clock instant as the video seek via PROGRAM-DATE-TIME when the
+  //        playlist carries it, and normalise negative pre-roll with make_zero.
 
-  if (audioFiles) {
-    const vSeg = videoInRange[0]
-    const aSeg = audioInRange![0]
-    // Video-axis time that the first in-range audio segment begins at.
-    const audioBaseOnVideoAxis =
-      vSeg.pdt != null && aSeg.pdt != null
-        ? vSeg.startTime + (aSeg.pdt - vSeg.pdt) / 1000
-        : aSeg.startTime
-    trimStartAudio = inTime - audioBaseOnVideoAxis
-
-    // Can't seek before the start of the concatenated audio — if the aligned
-    // offset is negative, push both cuts later by the shortfall so they stay
-    // locked together (the clip just starts that fraction of a second later).
-    if (trimStartAudio < 0) {
-      const shift = -trimStartAudio
-      trimStartAudio = 0
-      trimStartVideo += shift
-      duration -= shift
-    }
-  }
-
-  // 6. Run FFmpeg: concat → trim → mux → MP4
   onProgress({ stage: 'Processing with FFmpeg…', percent: 65 })
 
   const progressHandler = ({ progress }: { progress: number }) => {
@@ -168,22 +165,54 @@ export async function clipVideo(
   // doesn't emit jumps that players interpret as A/V drift.
   if (crossesDiscontinuity) args.push('-fflags', '+genpts')
 
-  args.push('-f', 'concat', '-safe', '0', '-ss', trimStartVideo.toFixed(3), '-i', 'concat.txt')
-  if (audioFiles) {
-    args.push('-f', 'concat', '-safe', '0', '-ss', trimStartAudio.toFixed(3), '-i', 'audioconcat.txt')
-  }
+  if (!audioFiles) {
+    // (a) Muxed — no seek, trim only the tail.
+    const outDuration = outTime - videoInRange[0].startTime
+    args.push(
+      '-f', 'concat', '-safe', '0', '-i', 'concat.txt',
+      '-t', outDuration.toFixed(3),
+      '-c', 'copy',
+      '-movflags', '+faststart',
+      'output.mp4'
+    )
+  } else {
+    // (b) Separate audio rendition — input-seek each track to aligned offsets.
+    let duration = outTime - inTime
+    let trimStartVideo = Math.max(0, inTime - videoInRange[0].startTime)
 
-  args.push('-t', duration.toFixed(3))
-  if (audioFiles) args.push('-map', '0:v:0', '-map', '1:a:0')
-  args.push(
-    '-c', 'copy',
-    // Keyframe-snapped video seeks leave a short pre-roll with negative
-    // timestamps; normalise it so the muxer doesn't offset one track vs the other.
-    '-avoid_negative_ts', 'make_zero',
-    '-muxdelay', '0', '-muxpreload', '0',
-    '-movflags', '+faststart',
-    'output.mp4'
-  )
+    const vSeg = videoInRange[0]
+    const aSeg = audioInRange![0]
+    // Video-axis time that the first in-range audio segment begins at.
+    const audioBaseOnVideoAxis =
+      vSeg.pdt != null && aSeg.pdt != null
+        ? vSeg.startTime + (aSeg.pdt - vSeg.pdt) / 1000
+        : aSeg.startTime
+    let trimStartAudio = inTime - audioBaseOnVideoAxis
+
+    // Can't seek before the start of the concatenated audio — if the aligned
+    // offset is negative, push both cuts later by the shortfall so they stay
+    // locked together (the clip just starts that fraction of a second later).
+    if (trimStartAudio < 0) {
+      const shift = -trimStartAudio
+      trimStartAudio = 0
+      trimStartVideo += shift
+      duration -= shift
+    }
+
+    args.push(
+      '-f', 'concat', '-safe', '0', '-ss', trimStartVideo.toFixed(3), '-i', 'concat.txt',
+      '-f', 'concat', '-safe', '0', '-ss', trimStartAudio.toFixed(3), '-i', 'audioconcat.txt',
+      '-t', duration.toFixed(3),
+      '-map', '0:v:0', '-map', '1:a:0',
+      '-c', 'copy',
+      // Keyframe-snapped video seeks leave a short pre-roll with negative
+      // timestamps; normalise so the muxer doesn't offset one track vs the other.
+      '-avoid_negative_ts', 'make_zero',
+      '-muxdelay', '0', '-muxpreload', '0',
+      '-movflags', '+faststart',
+      'output.mp4'
+    )
+  }
 
   try {
     await ffmpeg.exec(args)
@@ -191,11 +220,11 @@ export async function clipVideo(
     ffmpeg.off('progress', progressHandler)
   }
 
-  // 7. Read output
+  // 6. Read output
   onProgress({ stage: 'Finalizing…', percent: 97 })
   const outputData = await ffmpeg.readFile('output.mp4') as Uint8Array<ArrayBuffer>
 
-  // 8. Cleanup virtual FS
+  // 7. Cleanup virtual FS
   const filesToDelete = [
     ...videoFiles,
     ...(audioFiles ?? []),

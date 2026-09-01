@@ -27,6 +27,13 @@ const isDesktop = !!window.livecut?.isDesktop
 const isCorsLikeError = (msg: string | null): boolean =>
   !!msg && (msg.includes('CORS') || msg.includes('(403)'))
 
+// The current desktop shell release. A hard link — bump this whenever a new
+// `desktop-v*` release is published (see electron/README.md), and update the
+// matching per-platform download links in README.md.
+const DESKTOP_RELEASE_TAG = 'desktop-v1.0.0'
+const DESKTOP_RELEASE_URL =
+  `https://github.com/chrissabato/livecut/releases/tag/${DESKTOP_RELEASE_TAG}`
+
 export default function App() {
   const [streamUrl, setStreamUrl] = useState('')
   const [urlInput, setUrlInput] = useState('')
@@ -334,7 +341,7 @@ export default function App() {
                 {!isDesktop && isCorsLikeError(streamError) && (
                   <a
                     className="desktop-cta"
-                    href="https://github.com/chrissabato/livecut/releases"
+                    href={DESKTOP_RELEASE_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

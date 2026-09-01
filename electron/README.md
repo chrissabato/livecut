@@ -68,6 +68,16 @@ changes**. It is what `app.getVersion()` and electron-builder read, and it names
 the `desktop-v<version>` GitHub release. It is deliberately decoupled from the
 root `package.json` `vX.Y.Z` that `deploy.yml` bumps on every push.
 
+**When you bump it and cut a new `desktop-v*` release, also update the hard
+download links that point at the previous one:**
+
+- `DESKTOP_RELEASE_TAG` in `src/App.tsx` (the in-app "download it here" link)
+- the download table in the root `README.md` "Desktop app" section
+
+(The asset filenames carry the version — `LiveCut-<version>-<arch>.<ext>` — so
+the URLs change every release. A moving `desktop-latest` release would remove
+this manual step; not set up yet.)
+
 ## Release (CI)
 
 `.github/workflows/desktop.yml` runs a macOS + Windows matrix and publishes a

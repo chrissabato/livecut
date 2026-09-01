@@ -12,6 +12,7 @@ on:
     branches: [main]
     paths:
       - "electron/**"
+      - "!electron/**/*.md"  # doc-only changes shouldn't rebuild installers
       - ".github/workflows/desktop.yml"
 
 # Keep clear of deploy.yml's "pages" group.

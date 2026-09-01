@@ -1,0 +1,22 @@
+{
+  "name": "livecut-desktop",
+  "productName": "LiveCut",
+  "version": "1.0.0",
+  "description": "Thin Electron shell for LiveCut — loads the deployed site and defeats CORS/403 at the network layer.",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently -k \"npm --prefix .. run dev\" \"wait-on tcp:5173 && cross-env LIVECUT_DEV=1 electron .\"",
+    "build": "electron-builder --config electron-builder.yml --publish never",
+    "build:mac": "electron-builder --mac --config electron-builder.yml --publish never",
+    "build:win": "electron-builder --win --config electron-builder.yml --publish never"
+  },
+  "devDependencies": {
+    "concurrently": "^9",
+    "cross-env": "^7",
+    "electron": "^32",
+    "electron-builder": "^25",
+    "wait-on": "^8"
+  }
+}

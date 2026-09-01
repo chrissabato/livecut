@@ -1,0 +1,32 @@
+appId: com.chrissabato.livecut
+productName: LiveCut
+
+# Only the shell ships in the package — the app itself is loaded from the web.
+files:
+  - main.js
+  - preload.js
+  - error.html
+  - package.json
+  - entitlements.mac.plist
+
+electronLanguages: [en]
+
+mac:
+  category: public.app-category.video
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64] # zip = future electron-updater feed
+  hardenedRuntime: true
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.plist
+  notarize: true # electron-builder v25 reads APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+  # Unsigned for v1 — SmartScreen "unknown publisher"; bypass documented in the release notes.
+
+# No `publish:` block -> `--publish never`; the desktop.yml workflow uploads to a `desktop-v*` release.

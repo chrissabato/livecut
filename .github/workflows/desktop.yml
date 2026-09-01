@@ -1,0 +1,115 @@
+name: Desktop release
+
+# Decoupled from the per-push vX.Y.Z Pages cycle. The thin shell only needs a
+# new build when electron/** changes or to pick up a Chromium security patch.
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: Release notes
+        required: false
+  push:
+    branches: [main]
+    paths:
+      - "electron/**"
+      - ".github/workflows/desktop.yml"
+
+# Keep clear of deploy.yml's "pages" group.
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install shell deps
+        run: npm --prefix electron ci
+
+      - name: Build installers
+        run: npm --prefix electron run build
+        env:
+          # Consumed by electron-builder on the macOS job; harmless/empty elsewhere.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          path: |
+            electron/dist/*.dmg
+            electron/dist/*.zip
+            electron/dist/*.exe
+            electron/dist/*.blockmap
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: desktop-release-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Resolve desktop version
+        id: ver
+        run: echo "version=$(node -p "require('./electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Publish desktop-v${{ steps.ver.outputs.version }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          NOTES_INPUT: ${{ github.event.inputs.notes }}
+        run: |
+          set -euo pipefail
+          TAG="desktop-v$VERSION"
+          NOTES_FILE="$(mktemp)"
+          {
+            if [ -n "${NOTES_INPUT:-}" ]; then
+              printf '%s\n\n' "$NOTES_INPUT"
+            fi
+            echo "LiveCut desktop shell v$VERSION. Loads the live site and defeats CORS/403 at the network layer."
+            echo
+            echo "### Windows (unsigned)"
+            echo "SmartScreen will show \"Windows protected your PC\". Click **More info -> Run anyway**."
+            echo
+            echo "### macOS"
+            echo "Signed with Developer ID and notarized — opens with no Gatekeeper warning."
+          } > "$NOTES_FILE"
+
+          FILES=$(find artifacts -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.blockmap' \))
+          if [ -z "$FILES" ]; then
+            echo "No installer artifacts found" >&2
+            exit 1
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" $FILES --clobber
+          else
+            gh release create "$TAG" $FILES \
+              --title "LiveCut Desktop v$VERSION" \
+              --notes-file "$NOTES_FILE"
+          fi

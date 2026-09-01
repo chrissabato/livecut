@@ -24,7 +24,14 @@
         box-sizing: border-box;
       }
       h1 { font-size: 20px; margin: 0 0 8px; color: #f05a00; }
-      p { margin: 0 0 20px; max-width: 380px; color: #aaa; }
+      p { margin: 0 0 20px; max-width: 420px; color: #aaa; }
+      .detail {
+        margin: -8px 0 20px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        color: #d88;
+      }
+      .hint { font-size: 12px; color: #777; }
       button {
         font: inherit;
         padding: 9px 20px;
@@ -44,9 +51,21 @@
         LiveCut loads its interface from the web. Check your internet connection
         and try again.
       </p>
+      <p class="detail" id="detail" hidden></p>
       <button id="retry" type="button">Retry</button>
+      <p class="hint">
+        If this keeps happening, a diagnostic log is at
+        <code>%APPDATA%\LiveCut\crash.log</code> (Windows) or
+        <code>~/Library/Application&nbsp;Support/LiveCut/crash.log</code> (macOS).
+      </p>
     </div>
     <script>
+      var reason = new URLSearchParams(location.search).get('reason')
+      if (reason) {
+        var d = document.getElementById('detail')
+        d.textContent = reason
+        d.hidden = false
+      }
       document.getElementById('retry').addEventListener('click', function () {
         location.href = 'https://chrissabato.github.io/livecut/'
       })

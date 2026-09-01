@@ -5,15 +5,17 @@ const path = require('path')
 const https = require('https')
 const fs = require('fs')
 
-// Windows on ARM64 hits frequent Chromium GPU-process crashes that black out the
-// window a few seconds after load. Software compositing avoids it; the perf hit
-// is minor for a mostly-web-view app. Override with LIVECUT_GPU=1 to force GPU
-// on, or LIVECUT_NO_GPU=1 to force it off anywhere.
+// Windows (ARM64 especially) hits Chromium GPU-process crashes that black out
+// the window a few seconds after load. Fully disable the GPU path there — the
+// perf hit is minor for a mostly-web-view app. LIVECUT_GPU=1 forces it back on;
+// LIVECUT_NO_GPU=1 forces it off anywhere.
 const forceNoGpu = process.env.LIVECUT_NO_GPU === '1'
 const forceGpu = process.env.LIVECUT_GPU === '1'
-const isWinArm = process.platform === 'win32' && process.arch === 'arm64'
-if (forceNoGpu || (isWinArm && !forceGpu)) {
+const GPU_DISABLED = forceNoGpu || (process.platform === 'win32' && !forceGpu)
+if (GPU_DISABLED) {
   app.disableHardwareAcceleration()
+  app.commandLine.appendSwitch('disable-gpu')
+  app.commandLine.appendSwitch('disable-gpu-compositing')
 }
 
 // ── Load target ─────────────────────────────────────────────────────────────
@@ -150,16 +152,26 @@ function createWindow () {
   wc.on('did-start-loading', armWatchdog)
   wc.on('did-finish-load', clearWatchdog)
   wc.on('did-finish-load', maybeCheckForUpdate)
-  wc.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
-    if (isMainFrame && code !== -3 /* ERR_ABORTED */) showErrorScreen()
+  wc.on('did-fail-load', (_e, code, desc, _url, isMainFrame) => {
+    if (isMainFrame && code !== -3 /* ERR_ABORTED */) {
+      showErrorScreen(`network error ${code} (${desc})`)
+    }
   })
 
-  // Renderer / GPU crash recovery — reload a few times, then show the error page
-  // instead of leaving a black window (the window's backgroundColor).
+  // Renderer crash: try exactly ONE reload for the whole process life, then sit
+  // on the error page. Never loop — a persistent GPU/compositor fault would
+  // otherwise flip between a black window and the error screen forever.
   wc.on('render-process-gone', (_e, details) => {
     logCrash('render-process-gone', details)
     if (details.reason === 'clean-exit') return
-    recoverFromCrash()
+    if (reloadedAfterCrash) {
+      showErrorScreen(`renderer ${details.reason}`)
+      return
+    }
+    reloadedAfterCrash = true
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(TARGET_URL)
+    }, 1000)
   })
   wc.on('unresponsive', () => logCrash('unresponsive', {}))
 
@@ -170,7 +182,7 @@ function createWindow () {
 
 function armWatchdog () {
   clearWatchdog()
-  loadWatchdog = setTimeout(showErrorScreen, 15000)
+  loadWatchdog = setTimeout(() => showErrorScreen('timed out reaching the site'), 15000)
 }
 function clearWatchdog () {
   if (loadWatchdog) {
@@ -178,14 +190,17 @@ function clearWatchdog () {
     loadWatchdog = null
   }
 }
-function showErrorScreen () {
+let reloadedAfterCrash = false
+function showErrorScreen (reason) {
   clearWatchdog()
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.loadFile(path.join(__dirname, 'error.html'))
+    mainWindow.loadFile(path.join(__dirname, 'error.html'), {
+      search: reason ? 'reason=' + encodeURIComponent(reason) : undefined,
+    })
   }
 }
 
-// ── Crash logging + recovery ──────────────────────────────────────────────
+// ── Crash logging ────────────────────────────────────────────────────────
 // crash.log lives in userData: %APPDATA%\LiveCut on Windows,
 // ~/Library/Application Support/LiveCut on macOS.
 function logCrash (kind, details) {
@@ -194,22 +209,6 @@ function logCrash (kind, details) {
   try {
     fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'), line)
   } catch { /* best effort */ }
-}
-
-let crashReloads = 0
-let crashReloadReset = null
-function recoverFromCrash () {
-  if (!mainWindow || mainWindow.isDestroyed()) return
-  crashReloads++
-  clearTimeout(crashReloadReset)
-  crashReloadReset = setTimeout(() => { crashReloads = 0 }, 60000)
-  if (crashReloads > 3) {
-    showErrorScreen()
-    return
-  }
-  setTimeout(() => {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(TARGET_URL)
-  }, 500)
 }
 
 // ── Optional, non-blocking update nudge ────────────────────────────────────
@@ -295,15 +294,19 @@ if (!app.requestSingleInstanceLock()) {
     }
   })
 
-  // GPU / utility subprocess crashes (the usual cause of a black window on
-  // Windows/ARM). A GPU crash on its own doesn't fire render-process-gone, so
-  // log it and nudge a reload to re-establish compositing.
-  app.on('child-process-gone', (_e, details) => {
-    logCrash('child-process-gone', details)
-    if (details.type === 'GPU' && details.reason !== 'clean-exit') recoverFromCrash()
-  })
+  // GPU / utility subprocess crashes — log only. With the GPU path disabled on
+  // Windows there is nothing useful to do here but record it; reloading just
+  // re-triggers the same fault.
+  app.on('child-process-gone', (_e, details) => logCrash('child-process-gone', details))
 
   app.whenReady().then(() => {
+    logCrash('startup', {
+      version: app.getVersion(),
+      platform: process.platform,
+      arch: process.arch,
+      gpuDisabled: GPU_DISABLED,
+      target: TARGET_URL,
+    })
     installNetworkInterceptors()
     session.defaultSession.setPermissionRequestHandler((_wc, _permission, cb) => cb(false))
     createWindow()

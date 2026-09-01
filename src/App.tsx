@@ -39,7 +39,7 @@ const makeClipId = (): string => {
 // The current desktop shell release. A hard link — bump this whenever a new
 // `desktop-v*` release is published (see electron/README.md), and update the
 // matching per-platform download links in README.md.
-const DESKTOP_RELEASE_TAG = 'desktop-v1.0.1'
+const DESKTOP_RELEASE_TAG = 'desktop-v1.0.2'
 const DESKTOP_RELEASE_URL =
   `https://github.com/chrissabato/livecut/releases/tag/${DESKTOP_RELEASE_TAG}`
 

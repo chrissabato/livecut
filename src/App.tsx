@@ -27,6 +27,15 @@ const isDesktop = !!window.livecut?.isDesktop
 const isCorsLikeError = (msg: string | null): boolean =>
   !!msg && (msg.includes('CORS') || msg.includes('(403)'))
 
+// crypto.randomUUID needs Safari 15.4+ / a secure context. Fall back so "Add
+// clip" never silently throws on older browsers — clip ids only need to be
+// unique within the session, not cryptographic.
+const makeClipId = (): string => {
+  const c = typeof crypto !== 'undefined' ? crypto : undefined
+  if (c && typeof c.randomUUID === 'function') return c.randomUUID()
+  return `clip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 // The current desktop shell release. A hard link — bump this whenever a new
 // `desktop-v*` release is published (see electron/README.md), and update the
 // matching per-platform download links in README.md.
@@ -204,7 +213,7 @@ export default function App() {
   const handleAddClip = useCallback(() => {
     if (!canAddClip || pendingMarks.in === null || pendingMarks.out === null) return
     const newClip: Clip = {
-      id: crypto.randomUUID(),
+      id: makeClipId(),
       name: pendingName.trim() || `Clip ${clips.length + 1}`,
       in: pendingMarks.in,
       out: pendingMarks.out,

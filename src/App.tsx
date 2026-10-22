@@ -153,8 +153,22 @@ export default function App() {
     }
 
     setStreamUrl(finalUrl)
+    // Keep the address bar shareable: reopening it (or sending it to someone) loads the same stream.
+    window.history.replaceState(null, '', `?url=${encodeURIComponent(url)}`)
     track('stream_loaded', { stream_url: url, via_proxy: finalUrl !== url })
   }, [applyProxy, proxyUrl])
+
+  // Deep link: ?url=<m3u8> loads that stream as soon as the page opens, so other tools can link straight
+  // to a clip-ready player. The ref stops React's development double-mount from loading it twice.
+  const deepLinked = useRef(false)
+  useEffect(() => {
+    if (deepLinked.current) return
+    deepLinked.current = true
+    const url = new URLSearchParams(window.location.search).get('url')?.trim()
+    if (!url || !/^https?:\/\//i.test(url)) return
+    setUrlInput(url)
+    void handleLoad(url)
+  }, [handleLoad])
 
   const handleMarkIn = useCallback(() => {
     const t = playerRef.current?.getCurrentTime() ?? 0
